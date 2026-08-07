@@ -1,26 +1,109 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --panel-soft: #ffffff;
+  --ink: #0e90a0;
+  --muted: #667779;
+  --line: #e3e8ea;
+  --brand: #0e90a0;
+  --brand-strong: #087483;
+  --accent: #f8580a;
+  --header-bg: #ffffff;
+  --toolbar-bg: #ffffff;
+  --input-bg: #ffffff;
+  --subtle-hover: rgba(14, 144, 160, 0.08);
+  --chrome-shadow: rgba(0, 0, 0, 0.14);
+  --focus: rgba(248, 88, 10, 0.28);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-barlow), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: var(--font-lexend), var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  --color-cinza-escuro: #101012;
+  --color-cinza-ophover: #232325;
+
+  --color-branco-ophover: #ECF6F8;
+
+  --color-preto: #080809;
+
+  --color-laranja: #F8580A;
+  --color-azul: #0E90A0;
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-soft: var(--panel-soft);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-accent: var(--accent);
+  --color-header-bg: var(--header-bg);
+  --color-toolbar-bg: var(--toolbar-bg);
+  --color-input-bg: var(--input-bg);
+  --color-subtle-hover: var(--subtle-hover);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  color-scheme: dark;
+  --background: #080809;
+  --foreground: #ededed;
+  --bg: #080809;
+  --panel: #111113;
+  --panel-soft: #1b1b1f;
+  --ink: #ffffff;
+  --muted: #a8a8ad;
+  --line: #2d2d32;
+  --brand: #f5f5f6;
+  --brand-strong: #d7d7dc;
+  --accent: #ffffff;
+  --header-bg: #101012;
+  --toolbar-bg: #101012;
+  --input-bg: #161619;
+  --subtle-hover: rgba(255, 255, 255, 0.08);
+  --chrome-shadow: rgba(0, 0, 0, 0.5);
+  --focus: rgba(255, 255, 255, 0.28);
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
   background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--ink);
+  font-family: var(--font-barlow), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+textarea {
+  font-family: inherit;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-lexend), var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
