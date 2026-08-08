@@ -1,0 +1,11 @@
+services:
+  lumina:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${LUMINA_PORT:-3000}:3000"
+    environment:
+      API_BASE_URL: ${API_BASE_URL}
+      NODE_ENV: production
+    restart: unless-stopped
