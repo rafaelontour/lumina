@@ -19,7 +19,7 @@ import {
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
 
-import { atualizarProjetoDocumentoBackend, normalizarArvoreAnaliseRelease } from "@/app/services/documento";
+import { normalizarArvoreAnaliseRelease } from "@/app/services/documento";
 import {
     apagarConversaOiac,
     atualizarNomeDocumentoOiac,
@@ -199,12 +199,13 @@ export default function OiacIaChat({
     const [analiseInicialPendente, setAnaliseInicialPendente] = useState<AnaliseInicialPendenteOiac | null>(null);
     const [urlPreviewPdf, setUrlPreviewPdf] = useState("");
     const [erroPreview, setErroPreview] = useState("");
+    const [contagemPaginasPreview, setContagemPaginasPreview] = useState<{ fileUrl: string; total: number }>({
+        fileUrl: "",
+        total: 0,
+    });
     const [editandoNomeConversa, setEditandoNomeConversa] = useState(false);
     const [nomeConversaEmEdicao, setNomeConversaEmEdicao] = useState("");
     const [salvandoNomeConversa, setSalvandoNomeConversa] = useState(false);
-    const [projetoEmEdicaoId, setProjetoEmEdicaoId] = useState<string | null>(null);
-    const [nomeProjetoEmEdicao, setNomeProjetoEmEdicao] = useState("");
-    const [salvandoNomeProjeto, setSalvandoNomeProjeto] = useState(false);
     const finalMensagensRef = useRef<HTMLDivElement | null>(null);
     const urlPreviewPdfRef = useRef("");
 
@@ -219,6 +220,7 @@ export default function OiacIaChat({
     const analiseInicialPendenteAtual =
         analiseInicialPendente?.contextKey === contextKeyAnaliseInicial ? analiseInicialPendente : null;
     const conversaSelecionadaEhAvulsa = tipoConversaSelecionada === "avulsas";
+    const totalPaginasAtual = contagemPaginasPreview.fileUrl === urlPreviewPdf ? contagemPaginasPreview.total : 0;
 
     const limparUrlPreviewPdf = useCallback(() => {
         if (urlPreviewPdfRef.current) {
@@ -578,65 +580,6 @@ export default function OiacIaChat({
         toast.success("Nome da conversa atualizado.", { id: notificacaoId });
     }
 
-    function iniciarEdicaoNomeProjeto(projeto: ProjetoConversasAgrupadasOiac) {
-        setProjetoEmEdicaoId(projeto.id);
-        setNomeProjetoEmEdicao(projeto.name);
-    }
-
-    function cancelarEdicaoNomeProjeto() {
-        if (salvandoNomeProjeto) return;
-        setProjetoEmEdicaoId(null);
-        setNomeProjetoEmEdicao("");
-    }
-
-    async function salvarNomeProjeto() {
-        const projectId = projetoEmEdicaoId;
-        const nome = nomeProjetoEmEdicao.trim();
-        if (!projectId) return;
-
-        if (!nome) {
-            toast.error("Informe um nome para o projeto.");
-            return;
-        }
-
-        setSalvandoNomeProjeto(true);
-        const notificacaoId = `oiac:renomear-projeto:${projectId}`;
-        toast.loading("Atualizando nome do projeto...", { id: notificacaoId });
-        const [projetoAtualizado, err] = await atualizarProjetoDocumentoBackend({ projectId, nome });
-        if (err) {
-            toast.error(err.message, { id: notificacaoId });
-            setSalvandoNomeProjeto(false);
-            return;
-        }
-
-        const nomeAtualizado = projetoAtualizado?.name || nome;
-        const projetoRenomeado = conversasAgrupadas.find((projeto) => projeto.id === projectId);
-        const conversaPertenceAoProjeto = projetoRenomeado?.groups.some((grupo) =>
-            grupo.items.some((item) => item.backendDocumentId === conversaSelecionada?.id)
-        );
-
-        setConversasAgrupadas((atuais) =>
-            atuais.map((projeto) =>
-                projeto.id === projectId
-                    ? {
-                          ...projeto,
-                          name: nomeAtualizado,
-                          groups: projeto.groups.map((grupo) => ({ ...grupo, projectName: nomeAtualizado })),
-                      }
-                    : projeto
-            )
-        );
-        setConversaSelecionada((atual) =>
-            atual && conversaPertenceAoProjeto
-                ? { ...atual, description: `${nomeAtualizado} • ${atual.name}` }
-                : atual
-        );
-        setProjetoEmEdicaoId(null);
-        setNomeProjetoEmEdicao("");
-        setSalvandoNomeProjeto(false);
-        toast.success("Nome do projeto atualizado.", { id: notificacaoId });
-    }
-
     async function enviarMensagem(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         const conteudo = mensagem.trim();
@@ -795,14 +738,7 @@ export default function OiacIaChat({
                         <ListaConversasAgrupadas
                             carregando={carregandoConversasAgrupadas}
                             conversaSelecionadaId={conversaSelecionada?.id}
-                            nomeEmEdicao={nomeProjetoEmEdicao}
-                            projetoEmEdicaoId={projetoEmEdicaoId}
                             projetos={conversasAgrupadas}
-                            salvandoNomeProjeto={salvandoNomeProjeto}
-                            onCancelarEdicaoProjeto={cancelarEdicaoNomeProjeto}
-                            onIniciarEdicaoProjeto={iniciarEdicaoNomeProjeto}
-                            onMudarNomeProjeto={setNomeProjetoEmEdicao}
-                            onSalvarNomeProjeto={() => void salvarNomeProjeto()}
                             onSelect={selecionarConversaAgrupada}
                         />
                     )}
@@ -853,12 +789,22 @@ export default function OiacIaChat({
                                     >
                                         <X size={18} />
                                     </button>
+                                    {totalPaginasAtual > 0 ? (
+                                        <span className="shrink-0 text-sm font-semibold text-muted">
+                                            {totalPaginasAtual} {totalPaginasAtual === 1 ? "página" : "páginas"}
+                                        </span>
+                                    ) : null}
                                 </div>
                             ) : (
                                 <div className="flex min-w-0 items-center gap-2">
                                     <h2 className="overflow-hidden text-ellipsis whitespace-nowrap font-display text-xl font-bold">
                                         {conversaSelecionada?.name ?? "Selecione ou crie uma conversa"}
                                     </h2>
+                                    {totalPaginasAtual > 0 ? (
+                                        <span className="shrink-0 text-sm font-semibold text-muted">
+                                            {totalPaginasAtual} {totalPaginasAtual === 1 ? "página" : "páginas"}
+                                        </span>
+                                    ) : null}
                                     {conversaSelecionadaEhAvulsa ? (
                                         <button
                                             className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg text-muted transition hover:border-accent hover:text-accent"
@@ -923,7 +869,7 @@ export default function OiacIaChat({
                                 <PdfDocumentViewer
                                     key={`${conversaSelecionada.id}:${releasePreview?.id ?? "latest"}`}
                                     fileUrl={urlPreviewPdf}
-                                    title={conversaSelecionada.name}
+                                    onPageCountChange={(total) => setContagemPaginasPreview({ fileUrl: urlPreviewPdf, total })}
                                 />
                             ) : (
                                 <EstadoDocumento
@@ -1037,27 +983,13 @@ function BotaoAbaConversas({
 function ListaConversasAgrupadas({
     carregando,
     conversaSelecionadaId,
-    nomeEmEdicao,
     onSelect,
-    onCancelarEdicaoProjeto,
-    onIniciarEdicaoProjeto,
-    onMudarNomeProjeto,
-    onSalvarNomeProjeto,
-    projetoEmEdicaoId,
     projetos,
-    salvandoNomeProjeto,
 }: {
     carregando: boolean;
     conversaSelecionadaId?: string;
-    nomeEmEdicao: string;
     onSelect: (item: ItemConversaAgrupadaOiac, projectName: string) => void;
-    onCancelarEdicaoProjeto: () => void;
-    onIniciarEdicaoProjeto: (projeto: ProjetoConversasAgrupadasOiac) => void;
-    onMudarNomeProjeto: (nome: string) => void;
-    onSalvarNomeProjeto: () => void;
-    projetoEmEdicaoId: string | null;
     projetos: ProjetoConversasAgrupadasOiac[];
-    salvandoNomeProjeto: boolean;
 }) {
     if (carregando) {
         return <EstadoLista texto="Carregando documentos..." icone={<Loader2 className="animate-spin" size={20} />} />;
@@ -1072,58 +1004,9 @@ function ListaConversasAgrupadas({
             {projetos.map((projeto) => (
                 <section className="grid gap-2 rounded-lg border border-line bg-panel p-3" key={projeto.id}>
                     <div className="min-w-0">
-                        {projetoEmEdicaoId === projeto.id ? (
-                            <div className="flex min-w-0 items-center gap-2">
-                                <input
-                                    className="h-9 min-w-0 flex-1 rounded-md border border-line bg-input-bg px-2 font-display text-sm font-bold text-ink outline-none transition focus:border-brand disabled:opacity-60"
-                                    value={nomeEmEdicao}
-                                    disabled={salvandoNomeProjeto}
-                                    autoFocus
-                                    onChange={(event) => onMudarNomeProjeto(event.target.value)}
-                                    onKeyDown={(event) => {
-                                        if (event.key === "Enter") {
-                                            event.preventDefault();
-                                            onSalvarNomeProjeto();
-                                        }
-
-                                        if (event.key === "Escape") onCancelarEdicaoProjeto();
-                                    }}
-                                />
-                                <button
-                                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-line bg-brand text-white transition hover:bg-brand-strong dark:text-preto disabled:cursor-not-allowed disabled:opacity-50"
-                                    type="button"
-                                    disabled={salvandoNomeProjeto || !nomeEmEdicao.trim()}
-                                    onClick={onSalvarNomeProjeto}
-                                    aria-label="Salvar nome do projeto"
-                                >
-                                    {salvandoNomeProjeto ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-                                </button>
-                                <button
-                                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-line bg-input-bg text-muted transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
-                                    type="button"
-                                    disabled={salvandoNomeProjeto}
-                                    onClick={onCancelarEdicaoProjeto}
-                                    aria-label="Cancelar edição do nome do projeto"
-                                >
-                                    <X size={16} />
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="flex min-w-0 items-center gap-2">
-                                <h3 className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-display text-sm font-bold text-ink">
-                                    {projeto.name}
-                                </h3>
-                                <button
-                                    className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-input-bg text-muted transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
-                                    type="button"
-                                    disabled={salvandoNomeProjeto}
-                                    onClick={() => onIniciarEdicaoProjeto(projeto)}
-                                    aria-label="Editar nome do projeto"
-                                >
-                                    <Edit2 size={15} />
-                                </button>
-                            </div>
-                        )}
+                        <h3 className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-display text-sm font-bold text-ink">
+                            {projeto.name}
+                        </h3>
                     </div>
 
                     {projeto.groups.map((grupo) => (
