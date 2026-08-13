@@ -484,7 +484,7 @@ export default function TipificacoesPage() {
 
     return (
         <section className="grid gap-6 px-6 py-8 lg:px-8">
-            <header className="sticky top-0 z-40 -mx-6 -mt-8 flex flex-wrap items-start justify-between gap-4 border-b border-line bg-panel/95 px-6 py-6 shadow-[0_16px_30px_-26px_var(--chrome-shadow)] backdrop-blur lg:-mx-8 lg:px-8">
+            <header className="sticky top-0 z-40 -mx-6 -mt-8 flex flex-wrap items-end justify-between gap-4 border-b border-line bg-panel/95 px-6 py-6 shadow-[0_16px_30px_-26px_var(--chrome-shadow)] backdrop-blur lg:-mx-8 lg:px-8">
                 <div>
                     <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-accent">
                         Tipificações
@@ -492,7 +492,7 @@ export default function TipificacoesPage() {
                     <h1 className="mt-2 font-display text-4xl font-bold text-ink md:text-5xl">
                         Árvore de verificação
                     </h1>
-                    <p className="mt-3 max-w-3xl text-base leading-7 text-muted md:text-lg">
+                    <p className="mt-3 max-w-none whitespace-nowrap text-base leading-7 text-muted md:text-lg">
                         Visualize as tipificações cadastradas, suas taxonomias e os ramos usados na análise dos
                         documentos.
                     </p>

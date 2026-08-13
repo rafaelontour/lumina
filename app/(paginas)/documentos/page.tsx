@@ -649,7 +649,7 @@ export default function DocumentosPage() {
 
     return (
         <section className="grid gap-6 px-6 py-8 lg:px-8">
-            <header className="flex flex-wrap items-end justify-between gap-4">
+            <header className="sticky top-0 z-40 -mx-6 -mt-8 flex flex-wrap items-end justify-between gap-4 border-b border-line bg-panel/95 px-6 py-6 shadow-[0_16px_30px_-26px_var(--chrome-shadow)] backdrop-blur lg:-mx-8 lg:px-8">
                 <div>
                     <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-accent">
                         Documentos
@@ -662,11 +662,11 @@ export default function DocumentosPage() {
                     </p>
                 </div>
                 <button
-                    className="inline-flex h-11 items-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-background transition hover:bg-brand-strong"
+                    className="inline-flex h-12 items-center gap-2 rounded-lg bg-brand px-5 font-display text-base font-bold text-white shadow-[0_12px_28px_-16px_var(--brand)] transition hover:bg-brand-strong dark:text-preto"
                     type="button"
                     onClick={abrirCriacaoDocumento}
                 >
-                    <Plus size={18} />
+                    <Plus size={20} />
                     Adicionar documento
                 </button>
             </header>

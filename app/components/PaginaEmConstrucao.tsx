@@ -14,7 +14,7 @@ export default function PaginaEmConstrucao({
 }: Readonly<PaginaEmConstrucaoProps>) {
     return (
         <section className="grid min-h-full place-items-center px-6 py-10 lg:px-8">
-            <div className="grid w-full max-w-3xl gap-6 rounded-lg border border-line bg-panel p-8 text-ink shadow-[0_22px_60px_-34px_var(--chrome-shadow)]">
+            <header className="sticky top-0 z-40 grid w-full max-w-3xl gap-6 rounded-lg border border-line bg-panel p-8 text-ink shadow-[0_22px_60px_-34px_var(--chrome-shadow)]">
                 <div className="grid size-14 place-items-center rounded-lg border border-line bg-input-bg text-accent">
                     <Icone size={28} />
                 </div>
@@ -34,7 +34,7 @@ export default function PaginaEmConstrucao({
                     Ver tipificações
                     <ArrowRight size={17} />
                 </Link>
-            </div>
+            </header>
         </section>
     );
 }
