@@ -4,6 +4,8 @@ import { ChevronLeft, ChevronRight, FileText, Loader2, Maximize2, Search, X, Zoo
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs, type TextContent } from "react-pdf";
 
+import type { ReferenciaDocumentoAnaliseRelease } from "@/app/types/Documento";
+
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     "pdfjs-dist/build/pdf.worker.min.mjs",
     import.meta.url
@@ -18,9 +20,16 @@ const zoomMaximo = 2.5;
 const passoZoom = 0.15;
 
 interface PdfDocumentViewerProps {
+    evidenciaSelecionada?: ReferenciaDocumentoAnaliseRelease | null;
+    evidenciaSelecionadaChave?: number;
     fileUrl: string;
     onPageCountChange?: (totalPaginas: number) => void;
 }
+
+type DimensoesPagina = {
+    altura: number;
+    largura: number;
+};
 
 interface ResultadoBusca {
     indice: number;
@@ -52,17 +61,26 @@ function chaveItem(pagina: number, item: number) {
     return `${pagina}:${item}`;
 }
 
-export default function PdfDocumentViewer({ fileUrl, onPageCountChange }: Readonly<PdfDocumentViewerProps>) {
-    return <LeitorPdf key={fileUrl} fileUrl={fileUrl} onPageCountChange={onPageCountChange} />;
+export default function PdfDocumentViewer({ evidenciaSelecionada, evidenciaSelecionadaChave, fileUrl, onPageCountChange }: Readonly<PdfDocumentViewerProps>) {
+    return (
+        <LeitorPdf
+            key={fileUrl}
+            evidenciaSelecionada={evidenciaSelecionada}
+            evidenciaSelecionadaChave={evidenciaSelecionadaChave}
+            fileUrl={fileUrl}
+            onPageCountChange={onPageCountChange}
+        />
+    );
 }
 
-function LeitorPdf({ fileUrl, onPageCountChange }: Readonly<PdfDocumentViewerProps>) {
+function LeitorPdf({ evidenciaSelecionada, evidenciaSelecionadaChave, fileUrl, onPageCountChange }: Readonly<PdfDocumentViewerProps>) {
     const [totalPaginas, setTotalPaginas] = useState(0);
     const [zoom, setZoom] = useState(1);
     const [larguraPainel, setLarguraPainel] = useState(0);
     const [termoBusca, setTermoBusca] = useState("");
     const [textosPaginas, setTextosPaginas] = useState<Record<number, string[]>>({});
     const [indiceResultadoPreferido, setIndiceResultadoPreferido] = useState(0);
+    const [dimensoesPaginas, setDimensoesPaginas] = useState<Record<number, DimensoesPagina>>({});
     const painelRef = useRef<HTMLDivElement | null>(null);
     const termoNormalizado = termoBusca.trim();
     const larguraBasePagina = larguraPainel > 0 ? Math.max(320, larguraPainel - 32) : 720;
@@ -111,6 +129,19 @@ function LeitorPdf({ fileUrl, onPageCountChange }: Readonly<PdfDocumentViewerPro
     const indiceResultadoAtivo = resultadosBusca.length > 0
         ? Math.min(indiceResultadoPreferido, resultadosBusca.length - 1)
         : -1;
+    const avisoEvidencia = useMemo(() => {
+        if (!evidenciaSelecionada) return "";
+        if (totalPaginas === 0) return "Carregando a página da evidência...";
+
+        const pagina = evidenciaSelecionada.page + 1;
+        if (pagina < 1 || pagina > totalPaginas) {
+            return "A página desta evidência não existe no PDF carregado.";
+        }
+
+        return evidenciaSelecionada.rects.length
+            ? `Evidência destacada na página ${pagina}.`
+            : `Evidência localizada na página ${pagina}, sem área precisa para destacar.`;
+    }, [evidenciaSelecionada, totalPaginas]);
 
     useEffect(() => {
         const painel = painelRef.current;
@@ -157,6 +188,49 @@ function LeitorPdf({ fileUrl, onPageCountChange }: Readonly<PdfDocumentViewerPro
 
         return () => observer.disconnect();
     }, [indiceResultadoAtivo, resultadosBusca.length, zoom]);
+
+    useEffect(() => {
+        if (!evidenciaSelecionada) {
+            return undefined;
+        }
+
+        if (totalPaginas === 0) {
+            return undefined;
+        }
+
+        const pagina = evidenciaSelecionada.page + 1;
+        if (pagina < 1 || pagina > totalPaginas) {
+            return undefined;
+        }
+
+        const painel = painelRef.current;
+        if (!painel) return undefined;
+
+        const seletorPagina = `[data-pdf-evidence-page="${pagina}"]`;
+        const rolarParaEvidencia = () => {
+            const paginaEvidencia = painel.querySelector<HTMLElement>(seletorPagina);
+            if (!paginaEvidencia) return false;
+
+            const limitePainel = painel.getBoundingClientRect();
+            const limitePagina = paginaEvidencia.getBoundingClientRect();
+            const proximaPosicao = painel.scrollTop
+                + limitePagina.top
+                - limitePainel.top
+                - (painel.clientHeight - limitePagina.height) / 2;
+
+            painel.scrollTo({ behavior: "smooth", top: Math.max(0, proximaPosicao) });
+            return true;
+        };
+
+        if (rolarParaEvidencia()) return undefined;
+
+        const observer = new MutationObserver(() => {
+            if (rolarParaEvidencia()) observer.disconnect();
+        });
+        observer.observe(painel, { childList: true, subtree: true });
+
+        return () => observer.disconnect();
+    }, [evidenciaSelecionada, evidenciaSelecionadaChave, totalPaginas]);
 
     const alterarZoom = useCallback((proximoZoom: number) => {
         setZoom(Math.min(zoomMaximo, Math.max(zoomMinimo, Number(proximoZoom.toFixed(2)))));
@@ -213,7 +287,7 @@ function LeitorPdf({ fileUrl, onPageCountChange }: Readonly<PdfDocumentViewerPro
                     <div className="flex h-9 min-w-52 flex-1 items-center rounded-lg border border-line bg-input-bg focus-within:border-brand">
                         <Search className="ml-2 shrink-0 text-muted" size={16} aria-hidden="true" />
                         <input
-                            type="search"
+                            type="text"
                             className="min-w-0 flex-1 bg-transparent px-2 text-sm text-ink outline-none placeholder:text-muted"
                             value={termoBusca}
                             onChange={(event) => {
@@ -264,6 +338,11 @@ function LeitorPdf({ fileUrl, onPageCountChange }: Readonly<PdfDocumentViewerPro
                             </BotaoControlePdf>
                         </div>
                     ) : null}
+                    {avisoEvidencia ? (
+                        <span className="max-w-56 text-xs font-semibold leading-4 text-muted" role="status">
+                            {avisoEvidencia}
+                        </span>
+                    ) : null}
                     <span className="hidden h-6 w-px bg-line sm:block" aria-hidden="true" />
                     <BotaoControlePdf
                         label="Diminuir zoom"
@@ -306,32 +385,66 @@ function LeitorPdf({ fileUrl, onPageCountChange }: Readonly<PdfDocumentViewerPro
                     loading={<EstadoPdf icone={<Loader2 className="animate-spin" size={32} />} texto="Carregando PDF..." />}
                     error={<EstadoPdf icone={<FileText size={32} />} texto="Não foi possível renderizar o PDF." />}
                     noData={<EstadoPdf icone={<FileText size={32} />} texto="Nenhum PDF disponível." />}
-                    onLoadSuccess={({ numPages }: { numPages: number }) => {
-                        setTotalPaginas(numPages);
-                        onPageCountChange?.(numPages);
+                    onLoadSuccess={(documentoPdf) => {
+                        setTotalPaginas(documentoPdf.numPages);
+                        onPageCountChange?.(documentoPdf.numPages);
+                        void Promise.all(
+                            Array.from({ length: documentoPdf.numPages }, async (_, indice) => {
+                                const pagina = await documentoPdf.getPage(indice + 1);
+                                const viewport = pagina.getViewport({ scale: 1 });
+                                return [indice + 1, { largura: viewport.width, altura: viewport.height }] as const;
+                            })
+                        ).then((dimensoes) => {
+                            setDimensoesPaginas(Object.fromEntries(dimensoes));
+                        });
                     }}
                     onLoadError={() => {
                         setTotalPaginas(0);
                         setTextosPaginas({});
+                        setDimensoesPaginas({});
                         onPageCountChange?.(0);
                     }}
                 >
                     {Array.from({ length: totalPaginas }, (_, indice) => {
                         const pagina = indice + 1;
+                        const dimensoes = dimensoesPaginas[pagina];
+                        const escalaEvidencia = dimensoes ? larguraPagina / dimensoes.largura : 0;
+                        const destacarPagina = evidenciaSelecionada?.page === indice && escalaEvidencia > 0;
 
                         return (
-                            <Page
+                            <div
+                                className="relative overflow-hidden rounded-lg bg-white shadow-[0_18px_44px_-28px_var(--chrome-shadow)]"
+                                data-pdf-evidence-page={pagina}
                                 key={pagina}
-                                className="overflow-hidden rounded-lg bg-white shadow-[0_18px_44px_-28px_var(--chrome-shadow)] [&_canvas]:block [&_canvas]:max-w-none"
-                                error={<EstadoPdf icone={<FileText size={32} />} texto="Não foi possível renderizar esta página." />}
-                                loading={<EstadoPdf icone={<Loader2 className="animate-spin" size={32} />} texto="Carregando página..." />}
-                                pageNumber={pagina}
-                                renderAnnotationLayer={false}
-                                renderTextLayer
-                                onGetTextSuccess={(conteudo) => armazenarTextoPagina(pagina, conteudo)}
-                                customTextRenderer={renderizarTexto}
-                                width={larguraPagina}
-                            />
+                            >
+                                <Page
+                                    className="[&_canvas]:block [&_canvas]:max-w-none"
+                                    error={<EstadoPdf icone={<FileText size={32} />} texto="Não foi possível renderizar esta página." />}
+                                    loading={<EstadoPdf icone={<Loader2 className="animate-spin" size={32} />} texto="Carregando página..." />}
+                                    pageNumber={pagina}
+                                    renderAnnotationLayer={false}
+                                    renderTextLayer
+                                    onGetTextSuccess={(conteudo) => armazenarTextoPagina(pagina, conteudo)}
+                                    customTextRenderer={renderizarTexto}
+                                    width={larguraPagina}
+                                />
+                                {destacarPagina && evidenciaSelecionada?.rects.length ? (
+                                    <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+                                        {evidenciaSelecionada.rects.map((retangulo, indiceRetangulo) => (
+                                            <span
+                                                className="absolute border-b-2 border-amber-600/80 bg-amber-300/35 motion-safe:animate-pulse"
+                                                key={`${evidenciaSelecionadaChave ?? 0}-${indiceRetangulo}`}
+                                                style={{
+                                                    height: (retangulo.y2 - retangulo.y1) * escalaEvidencia,
+                                                    left: retangulo.x1 * escalaEvidencia,
+                                                    top: retangulo.y1 * escalaEvidencia,
+                                                    width: (retangulo.x2 - retangulo.x1) * escalaEvidencia,
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : null}
+                            </div>
                         );
                     })}
                 </Document>

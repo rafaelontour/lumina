@@ -3,8 +3,10 @@ import {
     Bot,
     BriefcaseBusiness,
     FileCheck2,
+    Files,
     Home,
     ListTree,
+    UsersRound,
     type LucideIcon,
 } from "lucide-react";
 
@@ -12,6 +14,8 @@ export type ItemMenu = {
     nome: string;
     href: string;
     icone: LucideIcon;
+    apenasAdmin?: boolean;
+    apenasNaoAdmin?: boolean;
 };
 
 export const itensMenu: ItemMenu[] = [
@@ -29,6 +33,19 @@ export const itensMenu: ItemMenu[] = [
         nome: "Documentos",
         href: "/documentos",
         icone: BriefcaseBusiness,
+        apenasNaoAdmin: true,
+    },
+    {
+        nome: "Meus orientandos",
+        href: "/documentos/orientandos",
+        icone: UsersRound,
+        apenasAdmin: true,
+    },
+    {
+        nome: "Templates",
+        href: "/templates",
+        icone: Files,
+        apenasAdmin: true,
     },
     {
         nome: "Tipificações",

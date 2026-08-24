@@ -17,16 +17,55 @@ export type DocumentoExterno = {
     updated_at?: string | null;
 };
 
+export type DocumentoOrientando = {
+    id: string;
+    name: string;
+    identifier: string;
+    description?: string | null;
+    grupo?: string | null;
+    tipo_documento?: string | null;
+    projeto_nome?: string | null;
+    created_at: string;
+    updated_at?: string | null;
+    is_archived: boolean;
+    processing_status?: string | null;
+};
+
+export type RespostaDocumentosOrientando = {
+    documents: DocumentoOrientando[];
+};
+
 export type FonteAnaliseRelease = {
     id?: string;
     name: string;
     description?: string | null;
 };
 
+export type CitacaoAnaliseRelease = {
+    chunkId: string;
+    textSnippet?: string | null;
+};
+
+export type RetanguloReferenciaDocumento = {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+};
+
+export type ReferenciaDocumentoAnaliseRelease = {
+    chunkId?: string | null;
+    page: number;
+    textSnippet?: string | null;
+    rects: RetanguloReferenciaDocumento[];
+};
+
 export type AvaliacaoCriterioRelease = {
     feedback?: string | null;
     fulfilled?: boolean | null;
     score?: number | null;
+    citations?: CitacaoAnaliseRelease[];
+    references?: ReferenciaDocumentoAnaliseRelease[];
 };
 
 export type CriterioAnaliseRelease = {

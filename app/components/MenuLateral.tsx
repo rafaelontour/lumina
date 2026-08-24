@@ -1,7 +1,16 @@
+"use client";
+
 import { itensMenu } from "../data/constants/ItensMenu";
+import { useAuth } from "../data/provider/AuthProvider";
 import MenuItem from "./MenuItem";
 
 export default function MenuLateral() {
+    const { usuario } = useAuth();
+    const administrador = usuario?.access_level === "ADMIN";
+    const itensVisiveis = itensMenu.filter(
+        (item) => (!item.apenasAdmin || administrador) && (!item.apenasNaoAdmin || !administrador)
+    );
+
     return (
         <aside
             aria-label="Menu principal"
@@ -12,7 +21,7 @@ export default function MenuLateral() {
             "
         >
             <nav className="grid gap-2">
-                {itensMenu.map((item) => (
+                {itensVisiveis.map((item) => (
                     <MenuItem
                         key={item.nome}
                         nome={item.nome}

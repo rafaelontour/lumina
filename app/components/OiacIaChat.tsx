@@ -4,10 +4,12 @@ import { type ChangeEvent, type FormEvent, useCallback, useEffect, useMemo, useR
 import {
     Bot,
     Check,
+    ChevronDown,
     Edit2,
     ExternalLink,
     FileText,
     Loader2,
+    MapPin,
     MessageSquare,
     Plus,
     Send,
@@ -17,6 +19,7 @@ import {
     X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 
 import { normalizarArvoreAnaliseRelease } from "@/app/services/documento";
@@ -33,7 +36,13 @@ import {
     listarReleasesConversaOiac,
     selecionarReleasePreview,
 } from "@/app/services/oiac";
-import type { FonteAnaliseRelease, ReleaseExterno, TipificacaoAnaliseRelease } from "@/app/types/Documento";
+import type {
+    FonteAnaliseRelease,
+    ReferenciaDocumentoAnaliseRelease,
+    ReleaseExterno,
+    TaxonomiaAnaliseRelease,
+    TipificacaoAnaliseRelease,
+} from "@/app/types/Documento";
 import type {
     ConversaOiac,
     ItemConversaAgrupadaOiac,
@@ -68,6 +77,11 @@ type AnaliseInicialOiac = {
 type AnaliseInicialPendenteOiac = {
     contextKey: string;
     releaseId: string;
+};
+
+type EvidenciaPdfSelecionada = {
+    chave: number;
+    referencia: ReferenciaDocumentoAnaliseRelease;
 };
 
 const intervaloAtualizacaoAnaliseMs = 3000;
@@ -199,6 +213,7 @@ export default function OiacIaChat({
     const [analiseInicialPendente, setAnaliseInicialPendente] = useState<AnaliseInicialPendenteOiac | null>(null);
     const [urlPreviewPdf, setUrlPreviewPdf] = useState("");
     const [erroPreview, setErroPreview] = useState("");
+    const [evidenciaPdfSelecionada, setEvidenciaPdfSelecionada] = useState<EvidenciaPdfSelecionada | null>(null);
     const [contagemPaginasPreview, setContagemPaginasPreview] = useState<{ fileUrl: string; total: number }>({
         fileUrl: "",
         total: 0,
@@ -366,6 +381,7 @@ export default function OiacIaChat({
     useEffect(() => {
         if (!conversaSelecionadaId) {
             void Promise.resolve().then(() => {
+                setEvidenciaPdfSelecionada(null);
                 setReleasePreview(null);
                 setErroPreview("");
                 limparUrlPreviewPdf();
@@ -494,6 +510,7 @@ export default function OiacIaChat({
             setConversas((atuais) => [novaConversa, ...atuais.filter((item) => item.id !== novaConversa.id)]);
             setAbaConversas("avulsas");
             setContextoPreviewSelecionado({});
+            setEvidenciaPdfSelecionada(null);
             setConversaSelecionada(novaConversa);
             setTipoConversaSelecionada("avulsas");
             toast.success("Conversa criada.", { id: notificacaoId });
@@ -508,6 +525,7 @@ export default function OiacIaChat({
         setEditandoNomeConversa(false);
         setNomeConversaEmEdicao("");
         setContextoPreviewSelecionado({});
+        setEvidenciaPdfSelecionada(null);
         setConversaSelecionada(conversa);
         setTipoConversaSelecionada("avulsas");
     }
@@ -522,6 +540,7 @@ export default function OiacIaChat({
             filePath: item.filePath,
             projectDocumentId: item.projectDocumentId,
         });
+        setEvidenciaPdfSelecionada(null);
         setTipoConversaSelecionada("grupos");
         setConversaSelecionada({
             id: item.backendDocumentId,
@@ -649,6 +668,7 @@ export default function OiacIaChat({
         setErroMensagens("");
         setMensagem("");
         setMensagemEmEnvio(null);
+        setEvidenciaPdfSelecionada(null);
         setReleasePreview(null);
         setAnaliseInicial(null);
         setContextoPreviewSelecionado({});
@@ -868,6 +888,8 @@ export default function OiacIaChat({
                             ) : urlPreviewPdf ? (
                                 <PdfDocumentViewer
                                     key={`${conversaSelecionada.id}:${releasePreview?.id ?? "latest"}`}
+                                    evidenciaSelecionada={evidenciaPdfSelecionada?.referencia}
+                                    evidenciaSelecionadaChave={evidenciaPdfSelecionada?.chave}
                                     fileUrl={urlPreviewPdf}
                                     onPageCountChange={(total) => setContagemPaginasPreview({ fileUrl: urlPreviewPdf, total })}
                                 />
@@ -907,9 +929,12 @@ export default function OiacIaChat({
                                     <ListaMensagens
                                         analiseInicial={analiseInicialAtual}
                                         analiseInicialPendente={analiseInicialPendenteAtual}
-                                        mensagens={mensagensOrdenadas}
-                                        mensagemEmEnvio={mensagemEmEnvio}
                                         finalMensagensRef={finalMensagensRef}
+                                        mensagemEmEnvio={mensagemEmEnvio}
+                                        mensagens={mensagensOrdenadas}
+                                        onSelecionarEvidencia={(referencia) => {
+                                            setEvidenciaPdfSelecionada({ chave: Date.now(), referencia });
+                                        }}
                                     />
                                 )}
                             </div>
@@ -1082,12 +1107,14 @@ function ListaMensagens({
     finalMensagensRef,
     mensagemEmEnvio,
     mensagens,
+    onSelecionarEvidencia,
 }: {
     analiseInicial: AnaliseInicialOiac | null;
     analiseInicialPendente: AnaliseInicialPendenteOiac | null;
     finalMensagensRef: React.RefObject<HTMLDivElement | null>;
     mensagemEmEnvio: { content: string; createdAt: string } | null;
     mensagens: MensagemDocumento[];
+    onSelecionarEvidencia: (referencia: ReferenciaDocumentoAnaliseRelease) => void;
 }) {
     return (
         <div className="flex min-h-full w-full flex-col gap-4">
@@ -1095,7 +1122,10 @@ function ListaMensagens({
                 <article className="grid w-fit max-w-full self-start gap-2 rounded-lg border border-line bg-panel p-4 text-ink shadow-[0_18px_44px_-32px_var(--chrome-shadow)]">
                     <CabecalhoMensagem ia data="" />
                     {analiseInicial.content ? <ConteudoMensagem content={analiseInicial.content} /> : null}
-                    <ArvoreAnaliseRelease tipificacoes={analiseInicial.tipificacoes} />
+                    <ArvoreAnaliseRelease
+                        tipificacoes={analiseInicial.tipificacoes}
+                        onSelecionarEvidencia={onSelecionarEvidencia}
+                    />
                 </article>
             ) : null}
             {analiseInicialPendente ? (
@@ -1183,23 +1213,43 @@ function StatusAvaliacao({ fulfilled, score }: { fulfilled?: boolean | null; sco
     );
 }
 
-function ArvoreAnaliseRelease({ tipificacoes }: { tipificacoes: TipificacaoAnaliseRelease[] }) {
-    return (
-        <div className="grid gap-5 border-t border-line pt-4">
-            <h3 className="font-display text-lg font-bold text-ink">Avaliação detalhada</h3>
-            {tipificacoes.map((tipificacao, indiceTipificacao) => (
-                <section className="grid gap-4 border-l-2 border-brand/55 pl-4" key={tipificacao.id ?? `${tipificacao.name}-${indiceTipificacao}`}>
-                    <div className="grid gap-2">
-                        <h4 className="font-display text-base font-bold text-ink md:text-lg">{tipificacao.name}</h4>
-                        <FontesAnalise fontes={tipificacao.sources} />
-                    </div>
+function TaxonomiaAnaliseColapsavel({
+    onSelecionarEvidencia,
+    taxonomia,
+}: {
+    onSelecionarEvidencia: (referencia: ReferenciaDocumentoAnaliseRelease) => void;
+    taxonomia: TaxonomiaAnaliseRelease;
+}) {
+    const [aberta, setAberta] = useState(false);
+    const reduzirMovimento = useReducedMotion();
 
-                    {tipificacao.taxonomies?.map((taxonomia, indiceTaxonomia) => (
-                        <section className="grid gap-3 border-t border-line pt-4" key={taxonomia.id ?? `${taxonomia.title}-${indiceTaxonomia}`}>
-                            <div className="grid gap-1">
-                                <h5 className="font-display text-base font-bold text-ink">{taxonomia.title}</h5>
-                                {taxonomia.description ? <p className="text-justify text-sm leading-6 text-muted">{taxonomia.description}</p> : null}
-                            </div>
+    return (
+        <section className="border-t border-line pt-4">
+            <button
+                aria-expanded={aberta}
+                className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-sm font-display text-left text-base font-bold text-ink outline-none transition hover:text-brand focus-visible:ring-2 focus-visible:ring-brand/70"
+                type="button"
+                onClick={() => setAberta((atual) => !atual)}
+            >
+                <span>{taxonomia.title}</span>
+                <ChevronDown
+                    aria-hidden="true"
+                    className={`shrink-0 transition-transform ${aberta ? "rotate-180" : ""}`}
+                    size={18}
+                />
+            </button>
+
+            <AnimatePresence initial={false}>
+                {aberta ? (
+                    <motion.div
+                        animate={{ height: "auto", opacity: 1 }}
+                        className="overflow-hidden"
+                        exit={{ height: 0, opacity: 0 }}
+                        initial={{ height: 0, opacity: 0 }}
+                        transition={{ duration: reduzirMovimento ? 0 : 0.18, ease: "easeOut" }}
+                    >
+                        <div className="grid gap-3 pt-4">
+                            {taxonomia.description ? <p className="text-justify text-sm leading-6 text-muted">{taxonomia.description}</p> : null}
                             <FontesAnalise fontes={taxonomia.sources} />
 
                             <div className="grid gap-4">
@@ -1224,10 +1274,59 @@ function ArvoreAnaliseRelease({ tipificacoes }: { tipificacoes: TipificacaoAnali
                                                 <p className="whitespace-pre-wrap text-justify indent-6">{criterio.evaluation.feedback}</p>
                                             </div>
                                         ) : null}
+                                        {criterio.evaluation?.references?.length ? (
+                                            <div className="grid gap-2 text-sm">
+                                                <span className="font-bold text-ink">Evidências no documento</span>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {criterio.evaluation.references.map((referencia, indiceReferencia) => (
+                                                        <button
+                                                            className="inline-flex items-center gap-1 rounded-md border border-brand/45 bg-subtle-hover px-2 py-1 text-xs font-bold text-brand transition hover:border-brand hover:bg-brand hover:text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
+                                                            key={`${referencia.chunkId ?? "pagina"}-${referencia.page}-${indiceReferencia}`}
+                                                            type="button"
+                                                            title={referencia.textSnippet || `Localizar evidência na página ${referencia.page + 1}`}
+                                                            onClick={() => onSelecionarEvidencia(referencia)}
+                                                        >
+                                                            <MapPin aria-hidden="true" size={14} />
+                                                            Página {referencia.page + 1}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : null}
                                     </section>
                                 ))}
                             </div>
-                        </section>
+                        </div>
+                    </motion.div>
+                ) : null}
+            </AnimatePresence>
+        </section>
+    );
+}
+
+function ArvoreAnaliseRelease({
+    onSelecionarEvidencia,
+    tipificacoes,
+}: {
+    onSelecionarEvidencia: (referencia: ReferenciaDocumentoAnaliseRelease) => void;
+    tipificacoes: TipificacaoAnaliseRelease[];
+}) {
+    return (
+        <div className="grid gap-5 border-t border-line pt-4">
+            <h3 className="font-display text-lg font-bold text-ink">Avaliação detalhada</h3>
+            {tipificacoes.map((tipificacao, indiceTipificacao) => (
+                <section className="grid gap-4 border-l-2 border-brand/55 pl-4" key={tipificacao.id ?? `${tipificacao.name}-${indiceTipificacao}`}>
+                    <div className="grid gap-2">
+                        <h4 className="font-display text-base font-bold text-ink md:text-lg">{tipificacao.name}</h4>
+                        <FontesAnalise fontes={tipificacao.sources} />
+                    </div>
+
+                    {tipificacao.taxonomies?.map((taxonomia, indiceTaxonomia) => (
+                        <TaxonomiaAnaliseColapsavel
+                            key={taxonomia.id ?? `${taxonomia.title}-${indiceTaxonomia}`}
+                            onSelecionarEvidencia={onSelecionarEvidencia}
+                            taxonomia={taxonomia}
+                        />
                     ))}
                 </section>
             ))}

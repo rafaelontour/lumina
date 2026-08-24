@@ -15,6 +15,9 @@ import type {
     RespostaProjetosBackend,
     RespostaReleasesExternos,
     FonteAnaliseRelease,
+    CitacaoAnaliseRelease,
+    ReferenciaDocumentoAnaliseRelease,
+    RetanguloReferenciaDocumento,
     TaxonomiaAnaliseRelease,
     TipificacaoAnaliseRelease,
     UsuarioApi,
@@ -22,21 +25,12 @@ import type {
 import type { Tipificacao } from "@/app/types/Tipificacao";
 import {
     criarErroApi,
-    entrarComCredenciaisFixas,
     executarRequisicao,
     montarUrlApi,
-    obterStatusErro,
 } from "./autenticacao";
 
-async function refazerComLogin<T>(acao: () => Promise<T>, mensagemErro: string): Promise<[T | null, Error | null]> {
-    let [response, err] = await executarRequisicao(acao);
-
-    if (err && obterStatusErro(err) === 401) {
-        const [, loginErr] = await entrarComCredenciaisFixas();
-        if (loginErr) return [null, criarErroApi(loginErr, "Não foi possível fazer login.")];
-
-        [response, err] = await executarRequisicao(acao);
-    }
+async function executarRequisicaoProtegida<T>(acao: () => Promise<T>, mensagemErro: string): Promise<[T | null, Error | null]> {
+    const [response, err] = await executarRequisicao(acao);
 
     if (err) return [null, criarErroApi(err, mensagemErro)];
     return [response, null];
@@ -60,6 +54,10 @@ function comoId(valor: unknown) {
     return typeof valor === "string" ? valor : undefined;
 }
 
+function comoNumero(valor: unknown) {
+    return typeof valor === "number" && Number.isFinite(valor) ? valor : undefined;
+}
+
 function comoLista(valor: unknown) {
     return Array.isArray(valor) ? valor : [];
 }
@@ -73,6 +71,50 @@ function normalizarFontesAnalise(valor: unknown): FonteAnaliseRelease[] {
             id: comoId(fonte.id),
             name: comoTexto(fonte.name) ?? "Fonte sem nome",
             description: comoTexto(fonte.description),
+        }];
+    });
+}
+
+function normalizarCitacoesAnalise(valor: unknown): CitacaoAnaliseRelease[] {
+    return comoLista(valor).flatMap((item) => {
+        const citacao = comoRegistro(item);
+        const chunkId = comoTexto(citacao?.chunk_id)?.trim();
+        if (!chunkId) return [];
+
+        return [{
+            chunkId,
+            textSnippet: comoTexto(citacao?.text_snippet),
+        }];
+    });
+}
+
+function normalizarRetangulosReferencia(valor: unknown): RetanguloReferenciaDocumento[] {
+    return comoLista(valor).flatMap((item) => {
+        const retangulo = comoRegistro(item);
+        const x1 = comoNumero(retangulo?.x1);
+        const y1 = comoNumero(retangulo?.y1);
+        const x2 = comoNumero(retangulo?.x2);
+        const y2 = comoNumero(retangulo?.y2);
+
+        if (x1 === undefined || y1 === undefined || x2 === undefined || y2 === undefined || x2 <= x1 || y2 <= y1) {
+            return [];
+        }
+
+        return [{ x1, y1, x2, y2 }];
+    });
+}
+
+function normalizarReferenciasAnalise(valor: unknown): ReferenciaDocumentoAnaliseRelease[] {
+    return comoLista(valor).flatMap((item) => {
+        const referencia = comoRegistro(item);
+        const page = comoNumero(referencia?.page);
+        if (page === undefined || !Number.isInteger(page) || page < 0) return [];
+
+        return [{
+            chunkId: comoTexto(referencia?.chunk_id),
+            page,
+            textSnippet: comoTexto(referencia?.text_snippet),
+            rects: normalizarRetangulosReferencia(referencia?.rects),
         }];
     });
 }
@@ -92,6 +134,8 @@ function normalizarCriteriosAnalise(valor: unknown): CriterioAnaliseRelease[] {
                       feedback: comoTexto(avaliacao.feedback),
                       fulfilled: typeof avaliacao.fulfilled === "boolean" ? avaliacao.fulfilled : undefined,
                       score: typeof avaliacao.score === "number" ? avaliacao.score : undefined,
+                      citations: normalizarCitacoesAnalise(avaliacao.citations),
+                      references: normalizarReferenciasAnalise(avaliacao.references),
                   }
                 : undefined,
         }];
@@ -128,42 +172,21 @@ export function normalizarArvoreAnaliseRelease(valor: unknown): TipificacaoAnali
 }
 
 export async function obterUsuarioAtual(): Promise<[UsuarioApi | null, Error | null]> {
-    let [response, err] = await executarRequisicao(() =>
+    const [response, err] = await executarRequisicao(() =>
         axios.get<UsuarioApi>(montarUrlApi("/user/my"), { withCredentials: true })
     );
-
-    if (err && obterStatusErro(err) === 401) {
-        const [, loginErr] = await entrarComCredenciaisFixas();
-        if (loginErr) return [null, criarErroApi(loginErr, "Não foi possível fazer login.")];
-
-        [response, err] = await executarRequisicao(() =>
-            axios.get<UsuarioApi>(montarUrlApi("/user/my"), { withCredentials: true })
-        );
-    }
 
     if (err) return [null, criarErroApi(err, "Não foi possível identificar o usuário atual.")];
     return [response?.data ?? null, null];
 }
 
 export async function listarGruposDocumento(): Promise<[GrupoDocumento[], Error | null]> {
-    let [response, err] = await executarRequisicao(() =>
+    const [response, err] = await executarRequisicao(() =>
         axios.get<RespostaGruposDocumento>(montarUrlApi("/document-group"), {
             withCredentials: true,
             headers: { "Cache-Control": "no-store" },
         })
     );
-
-    if (err && obterStatusErro(err) === 401) {
-        const [, loginErr] = await entrarComCredenciaisFixas();
-        if (loginErr) return [[], criarErroApi(loginErr, "Não foi possível fazer login.")];
-
-        [response, err] = await executarRequisicao(() =>
-            axios.get<RespostaGruposDocumento>(montarUrlApi("/document-group"), {
-                withCredentials: true,
-                headers: { "Cache-Control": "no-store" },
-            })
-        );
-    }
 
     if (err) return [[], criarErroApi(err, "Não foi possível carregar os tipos de documento.")];
 
@@ -172,7 +195,7 @@ export async function listarGruposDocumento(): Promise<[GrupoDocumento[], Error 
 }
 
 export async function listarProjetosDocumento(): Promise<[ProjetoBackend[], Error | null]> {
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.get<RespostaProjetosBackend>(montarUrlApi("/project"), {
                 withCredentials: true,
@@ -196,7 +219,7 @@ export async function criarProjetoDocumentoBackend({
     descricao?: string;
     documentGroupId?: string;
 }): Promise<[ProjetoBackend | null, Error | null]> {
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.post<ProjetoBackend>(
                 montarUrlApi("/project"),
@@ -224,7 +247,7 @@ export async function atualizarProjetoDocumentoBackend({
     const nomeNormalizado = nome.trim();
     if (!nomeNormalizado) return [null, new Error("Informe um nome para o projeto.")];
 
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.put<ProjetoBackend>(
                 montarUrlApi("/project"),
@@ -242,7 +265,7 @@ export async function atualizarProjetoDocumentoBackend({
 }
 
 export async function apagarProjetoDocumentoBackend(projectId: string): Promise<[boolean, Error | null]> {
-    const [, err] = await refazerComLogin(
+    const [, err] = await executarRequisicaoProtegida(
         () => axios.delete(montarUrlApi(`/project/${encodeURIComponent(projectId)}`), { withCredentials: true }),
         "Não foi possível apagar o projeto."
     );
@@ -252,7 +275,7 @@ export async function apagarProjetoDocumentoBackend(projectId: string): Promise<
 }
 
 export async function listarDocumentosProjetoBackend(projectId: string): Promise<[DocumentoProjetoBackend[], Error | null]> {
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.get<RespostaDocumentosProjetoBackend>(
                 montarUrlApi(`/project-document/by-project/${encodeURIComponent(projectId)}`),
@@ -280,7 +303,7 @@ export async function criarDocumentoProjetoBackend({
     type?: string;
     typificationIds?: string[];
 }): Promise<[DocumentoProjetoBackend | null, Error | null]> {
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.post<DocumentoProjetoBackend>(
                 montarUrlApi("/project-document"),
@@ -317,7 +340,7 @@ export async function criarDocumentoExterno({
     tipoDocumento?: string;
     typificationId: string;
 }): Promise<[DocumentoExterno | null, Error | null]> {
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.post<DocumentoExterno>(
                 montarUrlApi("/doc"),
@@ -341,7 +364,7 @@ export async function criarDocumentoExterno({
 }
 
 export async function listarDocumentosExternosPorFonte(source: string): Promise<[DocumentoExterno[], Error | null]> {
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.get<RespostaDocumentosExternos>(montarUrlApi("/doc"), {
                 withCredentials: true,
@@ -367,7 +390,7 @@ export async function enviarReleaseDocumento(
     const formData = new FormData();
     formData.append("file", file);
 
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.post<ReleaseExterno>(montarUrlApi(`/doc/${encodeURIComponent(documentId)}/release`), formData, {
                 withCredentials: true,
@@ -385,24 +408,12 @@ export async function enviarReleaseDocumento(
 }
 
 export async function listarReleasesDocumento(documentId: string): Promise<[ReleaseExterno[], Error | null]> {
-    let [response, err] = await executarRequisicao(() =>
+    const [response, err] = await executarRequisicao(() =>
         axios.get<RespostaReleasesExternos>(montarUrlApi(`/doc/${documentId}/release`), {
             withCredentials: true,
             headers: { "Cache-Control": "no-store" },
         })
     );
-
-    if (err && obterStatusErro(err) === 401) {
-        const [, loginErr] = await entrarComCredenciaisFixas();
-        if (loginErr) return [[], criarErroApi(loginErr, "Não foi possível fazer login.")];
-
-        [response, err] = await executarRequisicao(() =>
-            axios.get<RespostaReleasesExternos>(montarUrlApi(`/doc/${documentId}/release`), {
-                withCredentials: true,
-                headers: { "Cache-Control": "no-store" },
-            })
-        );
-    }
 
     if (err) return [[], criarErroApi(err, "Não foi possível verificar a análise da IA.")];
 

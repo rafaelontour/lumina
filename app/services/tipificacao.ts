@@ -10,10 +10,8 @@ import type {
 } from "@/app/types/Tipificacao";
 import {
     criarErroApi,
-    entrarComCredenciaisFixas,
     executarRequisicao,
     montarUrlApi,
-    obterStatusErro,
 } from "./autenticacao";
 
 async function buscarTipificacoes() {
@@ -26,14 +24,7 @@ async function executarRequisicaoAutenticada<T>(
     acao: () => Promise<AxiosResponse<T>>,
     mensagemErro: string
 ): Promise<[T | null, Error | null]> {
-    let [response, err] = await executarRequisicao(acao);
-
-    if (err && obterStatusErro(err) === 401) {
-        const [, loginErr] = await entrarComCredenciaisFixas();
-        if (loginErr) return [null, criarErroApi(loginErr, "Não foi possível fazer login.")];
-
-        [response, err] = await executarRequisicao(acao);
-    }
+    const [response, err] = await executarRequisicao(acao);
 
     if (err) return [null, criarErroApi(err, mensagemErro)];
     return [response?.data ?? null, null];
@@ -93,6 +84,51 @@ export async function criarRamo({
         ),
         "Não foi possível criar o ramo."
     );
+}
+
+export async function criarTaxonomiaComPrimeiroRamo({
+    title,
+    description,
+    typificationId,
+    branchTitle,
+    branchDescription,
+}: {
+    title: string;
+    description: string;
+    typificationId: string;
+    branchTitle: string;
+    branchDescription: string;
+}): Promise<[Taxonomia | null, Error | null]> {
+    const taxonomia = { title: title.trim(), description: description.trim() };
+    const ramo = { title: branchTitle.trim(), description: branchDescription.trim() };
+
+    if (!taxonomia.title || !taxonomia.description || !ramo.title || !ramo.description) {
+        return [null, new Error("Informe o título e a descrição da taxonomia e do primeiro ramo.")];
+    }
+
+    const [taxonomiaCriada, taxonomiaErr] = await criarTaxonomia({
+        ...taxonomia,
+        typificationId,
+    });
+    if (taxonomiaErr || !taxonomiaCriada) {
+        return [null, taxonomiaErr ?? new Error("Não foi possível criar a taxonomia.")];
+    }
+
+    const [, ramoErr] = await criarRamo({
+        ...ramo,
+        taxonomyId: taxonomiaCriada.id,
+    });
+    if (!ramoErr) return [taxonomiaCriada, null];
+
+    const [, remocaoErr] = await removerTaxonomia(taxonomiaCriada.id);
+    if (remocaoErr) {
+        return [
+            null,
+            new Error(`${ramoErr.message} A taxonomia criada não pôde ser removida automaticamente.`),
+        ];
+    }
+
+    return [null, ramoErr];
 }
 
 export async function criarArvoreTipificacao(

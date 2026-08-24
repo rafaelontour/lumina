@@ -12,10 +12,8 @@ import type {
 } from "@/app/types/Oiac";
 import {
     criarErroApi,
-    entrarComCredenciaisFixas,
     executarRequisicao,
     montarUrlApi,
-    obterStatusErro,
 } from "./autenticacao";
 import {
     carregarWorkspaceDocumentos,
@@ -40,22 +38,15 @@ function normalizarConversaOiac(conversa: ConversaOiac): ConversaOiac {
     return { ...conversa, name, title: title || conversa.title };
 }
 
-async function refazerComLogin<T>(acao: () => Promise<T>, mensagemErro: string): Promise<[T | null, Error | null]> {
-    let [response, err] = await executarRequisicao(acao);
-
-    if (err && obterStatusErro(err) === 401) {
-        const [, loginErr] = await entrarComCredenciaisFixas();
-        if (loginErr) return [null, criarErroApi(loginErr, "Não foi possível fazer login.")];
-
-        [response, err] = await executarRequisicao(acao);
-    }
+async function executarRequisicaoProtegida<T>(acao: () => Promise<T>, mensagemErro: string): Promise<[T | null, Error | null]> {
+    const [response, err] = await executarRequisicao(acao);
 
     if (err) return [null, criarErroApi(err, mensagemErro)];
     return [response, null];
 }
 
 export async function listarConversasAvulsasOiac(): Promise<[ConversaOiac[], Error | null]> {
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.get<RespostaConversasOiac>(montarUrlApi("/doc"), {
                 withCredentials: true,
@@ -119,7 +110,7 @@ export async function listarConversasAgrupadasOiac(): Promise<[ProjetoConversasA
 }
 
 export async function listarMensagensDocumento(docId: string): Promise<[MensagemDocumento[], Error | null]> {
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.get<RespostaMensagensDocumento>(montarUrlApi(`/doc/${encodeURIComponent(docId)}/messages`), {
                 withCredentials: true,
@@ -135,7 +126,7 @@ export async function listarMensagensDocumento(docId: string): Promise<[Mensagem
 }
 
 export async function obterDocumentoOiac(docId: string): Promise<[ConversaOiac | null, Error | null]> {
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.get<ConversaOiac>(montarUrlApi(`/doc/${encodeURIComponent(docId)}`), {
                 withCredentials: true,
@@ -155,7 +146,7 @@ export async function atualizarNomeDocumentoOiac(
     const nomeNormalizado = nome.trim();
     if (!nomeNormalizado) return [null, new Error("Informe um nome para a conversa.")];
 
-    const [documentoAtual, documentoErr] = await refazerComLogin(
+    const [documentoAtual, documentoErr] = await executarRequisicaoProtegida(
         () =>
             axios.get<DocumentoOiacAtualizavel>(montarUrlApi(`/doc/${encodeURIComponent(docId)}`), {
                 withCredentials: true,
@@ -171,7 +162,7 @@ export async function atualizarNomeDocumentoOiac(
     const typificationIds = documento.typifications?.map((tipificacao) => tipificacao.id).filter(Boolean) ?? [];
     const editorsIds = documento.editors?.map((editor) => editor.id).filter(Boolean) ?? [];
 
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.put<ConversaOiac>(
                 montarUrlApi("/doc"),
@@ -233,7 +224,7 @@ export async function baixarArquivoPdfOiac(filePath?: string | null): Promise<[B
     const url = montarUrlPreviewPdf(filePath);
     if (!url) return [null, new Error("Nenhuma versão com arquivo foi encontrada para esta conversa.")];
 
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.get<Blob>(url, {
                 withCredentials: true,
@@ -252,8 +243,10 @@ export async function baixarArquivoPdfOiac(filePath?: string | null): Promise<[B
     return [blob, null];
 }
 
+export const baixarArquivoPdfRelease = baixarArquivoPdfOiac;
+
 export async function enviarMensagemIa(docId: string, content: string): Promise<[MensagemDocumento | null, Error | null]> {
-    const [response, err] = await refazerComLogin(
+    const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.post<MensagemDocumento>(
                 montarUrlApi(`/doc/${encodeURIComponent(docId)}/message/ai`),
@@ -268,7 +261,7 @@ export async function enviarMensagemIa(docId: string, content: string): Promise<
 }
 
 export async function apagarConversaOiac(docId: string): Promise<[boolean, Error | null]> {
-    const [, err] = await refazerComLogin(
+    const [, err] = await executarRequisicaoProtegida(
         () =>
             axios.delete(montarUrlApi(`/doc/${encodeURIComponent(docId)}`), {
                 withCredentials: true,
@@ -289,7 +282,7 @@ async function criarDocumentoConversaAvulsa({
     usuario: UsuarioApi;
     tipificacao: Tipificacao;
 }) {
-    return refazerComLogin(
+    return executarRequisicaoProtegida(
         () =>
             axios.post<DocumentoExterno>(
                 montarUrlApi("/doc"),
@@ -313,7 +306,7 @@ async function enviarArquivoConversa(docId: string, file: File) {
     const formData = new FormData();
     formData.append("file", file);
 
-    return refazerComLogin(
+    return executarRequisicaoProtegida(
         () =>
             axios.post<ReleaseExterno>(montarUrlApi(`/doc/${encodeURIComponent(docId)}/release`), formData, {
                 withCredentials: true,

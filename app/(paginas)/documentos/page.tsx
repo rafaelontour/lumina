@@ -4,13 +4,11 @@ import Link from "next/link";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-    BookCheck,
     Check,
     Bot,
     CheckCircle2,
     ClipboardCheck,
     Edit2,
-    FileCheck2,
     FilePlus2,
     FileText,
     FileWarning,
@@ -23,11 +21,6 @@ import {
     X,
 } from "lucide-react";
 
-import {
-    enviarConformidadeAbnt,
-    enviarConformidadeTemplate,
-    listarTemplatesConformidade,
-} from "@/app/services/conformidade";
 import {
     apagarProjetoDocumentoBackend,
     atualizarProjetoDocumentoBackend,
@@ -85,10 +78,6 @@ function normalizarTexto(valor: string) {
 
 function documentoCompleto(documento: DocumentoProjeto) {
     return documento.components.every((component) => statusComponente(component) === "ok");
-}
-
-function componenteArtigo(componente: ComponenteDocumento) {
-    return componente.label.trim().toLowerCase().includes("artigo");
 }
 
 function idsDocumentosBackend(documento: DocumentoProjeto) {
@@ -185,19 +174,12 @@ export default function DocumentosPage() {
     const [uploadConfirmado, setUploadConfirmado] = useState<string | null>(null);
     const [erroGrupos, setErroGrupos] = useState("");
     const [erroWorkspace, setErroWorkspace] = useState("");
-    const [templates, setTemplates] = useState<string[]>([]);
-    const [templatePorComponente, setTemplatePorComponente] = useState<Record<string, string>>({});
     const [documentoParaApagar, setDocumentoParaApagar] = useState<DocumentoProjeto | null>(null);
     const [apagandoDocumento, setApagandoDocumento] = useState(false);
     const [documentoEditandoNomeId, setDocumentoEditandoNomeId] = useState<string | null>(null);
     const [nomeDocumentoEmEdicao, setNomeDocumentoEmEdicao] = useState("");
     const [salvandoNomeDocumento, setSalvandoNomeDocumento] = useState(false);
     const idsAnaliseNestaSessao = useRef(new Set<string>());
-
-    useEffect(() => {
-        void listarTemplatesConformidade().then(setTemplates);
-    }, []);
-
     const carregarDocumentos = useCallback(async ({ mostrarCarregamento = false }: { mostrarCarregamento?: boolean } = {}) => {
         if (mostrarCarregamento) setCarregandoDocumentos(true);
         const [resultado, err] = await carregarWorkspaceDocumentos();
@@ -501,16 +483,6 @@ export default function DocumentosPage() {
             if (!releaseExterno?.id) throw new Error("O backend não retornou o ID do release recebido.");
 
             setUploadConfirmado(target);
-
-            if (componenteArtigo(componente)) {
-                const templateName = templatePorComponente[componenteKey] ?? templates[0];
-                void Promise.allSettled([
-                    templateName
-                        ? enviarConformidadeTemplate(documentoExterno.id, file, templateName)
-                        : Promise.resolve(),
-                    enviarConformidadeAbnt(documentoExterno.id, file),
-                ]);
-            }
 
             const analisePronta = releasePossuiAnalise(releaseExterno ?? undefined);
             if (!analisePronta) {
@@ -916,11 +888,6 @@ export default function DocumentosPage() {
                             alvoUpload={alvoUpload}
                             uploadConfirmado={uploadConfirmado}
                             onUpload={enviarComponente}
-                            templates={templates}
-                            templatePorComponente={templatePorComponente}
-                            onSelecionarTemplate={(componenteKey, templateName) =>
-                                setTemplatePorComponente((atual) => ({ ...atual, [componenteKey]: templateName }))
-                            }
                         />
                     ))}
                 </div>
@@ -942,9 +909,6 @@ function CartaoDocumento({
     alvoUpload,
     uploadConfirmado,
     onUpload,
-    templates,
-    templatePorComponente,
-    onSelecionarTemplate,
 }: {
     documento: DocumentoProjeto;
     onDelete: (documentoId: string) => void;
@@ -958,9 +922,6 @@ function CartaoDocumento({
     alvoUpload: string | null;
     uploadConfirmado: string | null;
     onUpload: (documentoId: string, componenteKey: string, file: File) => void;
-    templates: string[];
-    templatePorComponente: Record<string, string>;
-    onSelecionarTemplate: (componenteKey: string, templateName: string) => void;
 }) {
     const completo = documentoCompleto(documento);
     const okCount = documento.components.filter((component) => statusComponente(component) === "ok").length;
@@ -1054,12 +1015,8 @@ function CartaoDocumento({
                     const analiseIndisponivel = latest?.analysisStatus === "unavailable";
                     const arquivoRecebido = uploadConfirmado === target;
                     const componenteBloqueado = enviando || analisePendente;
-                    const podeEnviar = !componenteBloqueado;
                     const podeAnalisar = latest && !componenteBloqueado;
                     const documentoExternoId = latest?.externalDocumentId ?? latest?.documentId;
-                    const artigo = componenteArtigo(componente);
-                    const exibirConformidade =
-                        artigo && !componenteBloqueado && latest?.analysisStatus === "ready" && Boolean(latest.externalDocumentId);
 
                     return (
                         <section
@@ -1084,24 +1041,6 @@ function CartaoDocumento({
                                     {status === "pending" ? "Pendente" : status === "ok" ? "OK da IA" : "Ajustes"}
                                 </span>
                             </div>
-
-                            {artigo && templates.length > 0 && !componenteBloqueado ? (
-                                <label className="grid gap-2">
-                                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-muted">Template</span>
-                                    <select
-                                        className="h-10 rounded-lg border border-line bg-panel px-3 text-sm text-ink outline-none focus:border-brand"
-                                        disabled={componenteBloqueado}
-                                        value={templatePorComponente[componente.key] ?? templates[0]}
-                                        onChange={(event) => onSelecionarTemplate(componente.key, event.target.value)}
-                                    >
-                                        {templates.map((templateName) => (
-                                            <option key={templateName} value={templateName}>
-                                                {templateName}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
-                            ) : null}
 
                             <div>
                                 <h3 className="font-display text-lg font-bold">{componente.label}</h3>
@@ -1149,34 +1088,10 @@ function CartaoDocumento({
                             )}
 
                             {!componenteBloqueado ? <div className="grid gap-2">
-                                <label
-                                    className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg px-3 font-display text-sm font-semibold transition ${
-                                        podeEnviar
-                                            ? "bg-brand text-background hover:bg-brand-strong"
-                                            : "cursor-not-allowed bg-muted/20 text-muted"
-                                    }`}
-                                    aria-disabled={!podeEnviar}
-                                >
-                                    {enviando ? (
-                                        <Loader2 className="animate-spin" size={18} />
-                                    ) : latest ? (
-                                        <FilePlus2 size={18} />
-                                    ) : (
-                                        <UploadCloud size={18} />
-                                    )}
-                                    {enviando ? "Enviando..." : latest ? "Enviar nova versão" : "Enviar PDF"}
-                                    <input
-                                        className="sr-only"
-                                        type="file"
-                                        accept="application/pdf,.pdf"
-                                        disabled={!podeEnviar}
-                                        onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                                            const file = event.target.files?.[0];
-                                            event.target.value = "";
-                                            if (file) void onUpload(documento.id, componente.key, file);
-                                        }}
-                                    />
-                                </label>
+                                <BotaoUploadPdf
+                                    novaVersao={Boolean(latest)}
+                                    onSelecionar={(file) => void onUpload(documento.id, componente.key, file)}
+                                />
 
                                 {podeAnalisar ? (
                                     <Link
@@ -1188,31 +1103,46 @@ function CartaoDocumento({
                                     </Link>
                                 ) : null}
 
-                                {exibirConformidade ? (
-                                    <Link
-                                        className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-3 font-display text-sm font-semibold text-ink transition hover:bg-subtle-hover"
-                                        href={`/conformidade-template?documentId=${encodeURIComponent(latest.externalDocumentId!)}`}
-                                    >
-                                        <FileCheck2 size={18} />
-                                        Conformidade com template
-                                    </Link>
-                                ) : null}
-
-                                {exibirConformidade ? (
-                                    <Link
-                                        className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-3 font-display text-sm font-semibold text-ink transition hover:bg-subtle-hover"
-                                        href={`/conformidade-abnt?documentId=${encodeURIComponent(latest.externalDocumentId!)}`}
-                                    >
-                                        <BookCheck size={18} />
-                                        Conformidade com ABNT
-                                    </Link>
-                                ) : null}
                             </div> : null}
                         </section>
                     );
                 })}
             </div>
         </article>
+    );
+}
+
+function BotaoUploadPdf({
+    novaVersao,
+    onSelecionar,
+}: {
+    novaVersao: boolean;
+    onSelecionar: (file: File) => void;
+}) {
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    return (
+        <>
+            <button
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-3 font-display text-sm font-semibold text-background transition hover:bg-brand-strong"
+                type="button"
+                onClick={() => inputRef.current?.click()}
+            >
+                {novaVersao ? <FilePlus2 size={18} /> : <UploadCloud size={18} />}
+                {novaVersao ? "Enviar nova versão" : "Enviar PDF"}
+            </button>
+            <input
+                ref={inputRef}
+                className="hidden"
+                type="file"
+                accept="application/pdf,.pdf"
+                onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) onSelecionar(file);
+                }}
+            />
+        </>
     );
 }
 

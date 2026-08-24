@@ -1,6 +1,8 @@
 import axios, { type AxiosError } from "axios";
 import { tryit } from "radash";
 
+import type { CredenciaisLogin, UsuarioAutenticado } from "@/app/types/Autenticacao";
+
 type ErroApiData = {
     detail?: string | Array<{ msg?: string }>;
     message?: string;
@@ -8,11 +10,6 @@ type ErroApiData = {
 };
 
 export const apiBaseUrl = "/api/backend";
-
-export const credenciaisLogin = {
-    username: "rafael@gmail.com",
-    password: "12345",
-};
 
 export function montarUrlApi(path: string) {
     return `${apiBaseUrl}${path.startsWith("/") ? path : `/${path}`}`;
@@ -35,24 +32,48 @@ export function obterStatusErro(error: unknown) {
 
 export async function executarRequisicao<T>(acao: () => Promise<T>): Promise<[T | null, Error | null]> {
     const [err, result] = await tryit(acao)();
+    if (err && obterStatusErro(err) === 401 && typeof window !== "undefined") {
+        window.dispatchEvent(new Event("lumina-sessao-expirada"));
+    }
     return [result ?? null, err ?? null];
 }
 
-export async function entrarComCredenciaisFixas() {
-    return executarRequisicao(async () => {
-        await axios.post(montarUrlApi("/auth/sign-in"), new URLSearchParams(credenciaisLogin), {
+export async function obterUsuarioAutenticado(): Promise<[UsuarioAutenticado | null, Error | null]> {
+    const [response, err] = await executarRequisicao(() =>
+        axios.get<UsuarioAutenticado>(montarUrlApi("/user/my"), {
+            withCredentials: true,
+            headers: { "Cache-Control": "no-store" },
+        })
+    );
+
+    if (err) return [null, criarErroApi(err, "Não foi possível verificar a sessão.")];
+    return [response?.data ?? null, null];
+}
+
+export async function iniciarSessao({ username, password }: CredenciaisLogin): Promise<[UsuarioAutenticado | null, Error | null]> {
+    const [response, err] = await executarRequisicao(() =>
+        axios.post(montarUrlApi("/auth/sign-in"), new URLSearchParams({ username, password }), {
             withCredentials: true,
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
             },
-        });
+        })
+    );
 
-        return true;
-    });
+    if (err || !response) return [null, criarErroApi(err, "Não foi possível entrar na plataforma.")];
+    return obterUsuarioAutenticado();
+}
+
+export async function encerrarSessao(): Promise<[true | null, Error | null]> {
+    const [, err] = await executarRequisicao(() =>
+        axios.post(montarUrlApi("/auth/sign-out"), undefined, { withCredentials: true })
+    );
+
+    return err ? [null, criarErroApi(err, "Não foi possível encerrar a sessão.")] : [true, null];
 }
 
 export function criarErroApi(error: unknown, fallback: string) {
     return error instanceof Error
-        ? new Error(lerErroApi(error, error.message || fallback))
+        ? new Error(lerErroApi(error, fallback))
         : new Error(fallback);
 }

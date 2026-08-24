@@ -5,10 +5,12 @@ import { AlertCircle, GitBranch, Layers3, Loader2, Pencil, Plus, Save, Search, S
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 
+import { useAuth } from "@/app/data/provider/AuthProvider";
+
 import {
     criarArvoreTipificacao,
     criarRamo,
-    criarTaxonomia,
+    criarTaxonomiaComPrimeiroRamo,
     atualizarRamo,
     atualizarTaxonomia,
     atualizarTipificacao,
@@ -52,7 +54,15 @@ function criarTipificacaoRascunho(): TipificacaoRascunho {
 
 type FormularioContextual =
     | { tipo: "tipificacao"; tipificacao: Tipificacao; nome: string }
-    | { tipo: "taxonomia"; tipificacao: Tipificacao; taxonomia?: Taxonomia; title: string; description: string }
+    | { tipo: "taxonomia"; tipificacao: Tipificacao; taxonomia: Taxonomia; title: string; description: string }
+    | {
+        tipo: "taxonomia";
+        tipificacao: Tipificacao;
+        taxonomia?: undefined;
+        title: string;
+        description: string;
+        primeiroRamo: { title: string; description: string };
+    }
     | { tipo: "ramo"; tipificacao: Tipificacao; taxonomia: Taxonomia; ramo?: Ramo; title: string; description: string };
 
 type RemocaoPendente =
@@ -80,6 +90,8 @@ function validarTipificacaoRascunho(rascunho: TipificacaoRascunho) {
 }
 
 export default function TipificacoesPage() {
+    const { usuario } = useAuth();
+    const podeGerenciar = usuario?.access_level === "ADMIN";
     const [tipificacoes, setTipificacoes] = useState<Tipificacao[]>([]);
     const [busca, setBusca] = useState("");
     const [carregando, setCarregando] = useState(true);
@@ -102,6 +114,12 @@ export default function TipificacoesPage() {
     const [tipificacaoOriginal] = useState<Tipificacao | null>(null);
     const erroEdicao = "";
     const salvandoEdicao = false;
+
+    function podeExecutarGestao() {
+        if (podeGerenciar) return true;
+        toast.error("Somente professores podem alterar a base de conhecimento.");
+        return false;
+    }
 
     const carregarTipificacoes = useCallback(async (mostrarCarregamento = true) => {
         if (mostrarCarregamento) setCarregando(true);
@@ -180,28 +198,42 @@ export default function TipificacoesPage() {
     }, [fecharFormularioContextual, formularioContextual, salvandoFormulario]);
 
     function abrirCriacao() {
+        if (!podeExecutarGestao()) return;
         setRascunho(criarTipificacaoRascunho());
         setErroRascunho("");
         setCriacaoAberta(true);
     }
 
     function abrirEdicaoTipificacao(tipificacao: Tipificacao) {
+        if (!podeExecutarGestao()) return;
         setFormularioContextual({ tipo: "tipificacao", tipificacao, nome: tipificacao.name });
         setErroFormulario("");
     }
 
     function abrirFormularioTaxonomia(tipificacao: Tipificacao, taxonomia?: Taxonomia) {
-        setFormularioContextual({
-            tipo: "taxonomia",
-            tipificacao,
-            taxonomia,
-            title: taxonomia?.title ?? "",
-            description: taxonomia?.description ?? "",
-        });
+        if (!podeExecutarGestao()) return;
+        setFormularioContextual(
+            taxonomia
+                ? {
+                    tipo: "taxonomia",
+                    tipificacao,
+                    taxonomia,
+                    title: taxonomia.title,
+                    description: taxonomia.description,
+                }
+                : {
+                    tipo: "taxonomia",
+                    tipificacao,
+                    title: "",
+                    description: "",
+                    primeiroRamo: { title: "", description: "" },
+                }
+        );
         setErroFormulario("");
     }
 
     function abrirFormularioRamo(tipificacao: Tipificacao, taxonomia: Taxonomia, ramo?: Ramo) {
+        if (!podeExecutarGestao()) return;
         setFormularioContextual({
             tipo: "ramo",
             tipificacao,
@@ -284,6 +316,7 @@ export default function TipificacoesPage() {
 
     async function salvarTipificacao(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
+        if (!podeExecutarGestao()) return;
         if (salvandoRascunho) return;
 
         const erroValidacao = validarTipificacaoRascunho(rascunho);
@@ -320,6 +353,7 @@ export default function TipificacoesPage() {
 
     async function salvarFormularioContextual(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
+        if (!podeExecutarGestao()) return;
         if (salvandoFormulario || !formularioContextual) return;
 
         const temDescricao = formularioContextual.tipo !== "tipificacao";
@@ -331,6 +365,16 @@ export default function TipificacoesPage() {
             const mensagem = temDescricao
                 ? "Informe o título e a descrição."
                 : "Informe o nome da tipificação.";
+            setErroFormulario(mensagem);
+            toast.error(mensagem, { id: "tipificacoes:salvar-contextual" });
+            return;
+        }
+
+        const primeiroRamo = formularioContextual.tipo === "taxonomia" && !formularioContextual.taxonomia
+            ? formularioContextual.primeiroRamo
+            : null;
+        if (primeiroRamo && (!primeiroRamo.title.trim() || !primeiroRamo.description.trim())) {
+            const mensagem = "Informe o título e a descrição do primeiro ramo.";
             setErroFormulario(mensagem);
             toast.error(mensagem, { id: "tipificacoes:salvar-contextual" });
             return;
@@ -359,10 +403,12 @@ export default function TipificacoesPage() {
                     typificationId: formularioContextual.tipificacao.id,
                 });
             } else {
-                [, salvamentoErr] = await criarTaxonomia({
+                [, salvamentoErr] = await criarTaxonomiaComPrimeiroRamo({
                     title: nomeOuTitulo,
                     description: formularioContextual.description.trim(),
                     typificationId: formularioContextual.tipificacao.id,
+                    branchTitle: primeiroRamo?.title.trim() ?? "",
+                    branchDescription: primeiroRamo?.description.trim() ?? "",
                 });
             }
         } else {
@@ -399,6 +445,7 @@ export default function TipificacoesPage() {
     }
 
     async function confirmarRemocaoPendente() {
+        if (!podeExecutarGestao()) return;
         if (removendoRegistro || !remocaoPendente) return;
 
         const notificacaoId = "tipificacoes:remover-contextual";
@@ -424,6 +471,7 @@ export default function TipificacoesPage() {
     }
 
     async function confirmarExclusaoTipificacao() {
+        if (!podeExecutarGestao()) return;
         if (excluindoTipificacao || !tipificacaoParaExcluir) return;
 
         const notificacaoId = "tipificacoes:excluir";
@@ -497,14 +545,16 @@ export default function TipificacoesPage() {
                         documentos.
                     </p>
                 </div>
-                <button
-                    className="inline-flex h-12 items-center gap-2 rounded-lg bg-brand px-5 font-display text-base font-bold text-white shadow-[0_12px_28px_-16px_var(--brand)] transition hover:bg-brand-strong dark:text-preto"
-                    type="button"
-                    onClick={abrirCriacao}
-                >
-                    <Plus size={20} />
-                    Nova tipificação
-                </button>
+                {podeGerenciar ? (
+                    <button
+                        className="inline-flex h-12 items-center gap-2 rounded-lg bg-brand px-5 font-display text-base font-bold text-white shadow-[0_12px_28px_-16px_var(--brand)] transition hover:bg-brand-strong dark:text-preto"
+                        type="button"
+                        onClick={abrirCriacao}
+                    >
+                        <Plus size={20} />
+                        Nova tipificação
+                    </button>
+                ) : null}
             </header>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumo das tipificações">
@@ -566,30 +616,34 @@ export default function TipificacoesPage() {
                                         <GitBranch size={16} />
                                         {contarRamos(tipificacao)} ramo(s)
                                     </span>
-                                    <button
-                                        className="inline-flex items-center gap-2 rounded-full border border-line bg-input-bg px-3 py-2 text-ink transition hover:border-brand hover:bg-subtle-hover"
-                                        type="button"
-                                        onClick={() => abrirEdicaoTipificacao(tipificacao)}
-                                    >
-                                        <Pencil size={16} />
-                                        Editar nome
-                                    </button>
-                                    <button
-                                        className="inline-flex items-center gap-2 rounded-full border border-line bg-input-bg px-3 py-2 text-ink transition hover:border-brand hover:bg-subtle-hover"
-                                        type="button"
-                                        onClick={() => abrirFormularioTaxonomia(tipificacao)}
-                                    >
-                                        <Plus size={16} />
-                                        Taxonomia
-                                    </button>
-                                    <button
-                                        className="inline-flex items-center gap-2 rounded-full border border-line bg-input-bg px-3 py-2 text-accent transition hover:border-accent hover:bg-accent/10"
-                                        type="button"
-                                        onClick={() => setTipificacaoParaExcluir(tipificacao)}
-                                    >
-                                        <Trash2 size={16} />
-                                        Excluir
-                                    </button>
+                                    {podeGerenciar ? (
+                                        <>
+                                            <button
+                                                className="inline-flex items-center gap-2 rounded-full border border-line bg-input-bg px-3 py-2 text-ink transition hover:border-brand hover:bg-subtle-hover"
+                                                type="button"
+                                                onClick={() => abrirEdicaoTipificacao(tipificacao)}
+                                            >
+                                                <Pencil size={16} />
+                                                Editar nome
+                                            </button>
+                                            <button
+                                                className="inline-flex items-center gap-2 rounded-full border border-line bg-input-bg px-3 py-2 text-ink transition hover:border-brand hover:bg-subtle-hover"
+                                                type="button"
+                                                onClick={() => abrirFormularioTaxonomia(tipificacao)}
+                                            >
+                                                <Plus size={16} />
+                                                Taxonomia
+                                            </button>
+                                            <button
+                                                className="inline-flex items-center gap-2 rounded-full border border-line bg-input-bg px-3 py-2 text-accent transition hover:border-accent hover:bg-accent/10"
+                                                type="button"
+                                                onClick={() => setTipificacaoParaExcluir(tipificacao)}
+                                            >
+                                                <Trash2 size={16} />
+                                                Excluir
+                                            </button>
+                                        </>
+                                    ) : null}
                                 </div>
                             </header>
 
@@ -650,31 +704,33 @@ export default function TipificacoesPage() {
                                                 <GitBranch size={16} />
                                                 Ver {taxonomia.branches.length} ramo(s)
                                             </span>
-                                        <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
-                                            <button
-                                                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-xs font-bold text-ink transition hover:border-brand"
-                                                type="button"
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    abrirFormularioTaxonomia(tipificacao, taxonomia);
-                                                }}
-                                            >
-                                                <Pencil size={14} />
-                                                Editar taxonomia
-                                            </button>
-                                            <button
-                                                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-xs font-bold text-accent transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-45"
-                                                type="button"
-                                                disabled={tipificacao.taxonomies.length === 1}
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    setRemocaoPendente({ tipo: "taxonomia", tipificacao, taxonomia });
-                                                }}
-                                            >
-                                                <Trash2 size={14} />
-                                                Remover
-                                            </button>
-                                        </div>
+                                        {podeGerenciar ? (
+                                            <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
+                                                <button
+                                                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-xs font-bold text-ink transition hover:border-brand"
+                                                    type="button"
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        abrirFormularioTaxonomia(tipificacao, taxonomia);
+                                                    }}
+                                                >
+                                                    <Pencil size={14} />
+                                                    Editar taxonomia
+                                                </button>
+                                                <button
+                                                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-xs font-bold text-accent transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-45"
+                                                    type="button"
+                                                    disabled={tipificacao.taxonomies.length === 1}
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        setRemocaoPendente({ tipo: "taxonomia", tipificacao, taxonomia });
+                                                    }}
+                                                >
+                                                    <Trash2 size={14} />
+                                                    Remover
+                                                </button>
+                                            </div>
+                                        ) : null}
                                         </div>
                                     </div>
                                 ))}
@@ -684,7 +740,7 @@ export default function TipificacoesPage() {
                 </div>
             )}
 
-            {criacaoAberta ? (
+            {podeGerenciar && criacaoAberta ? (
                 <div
                     className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4"
                     role="presentation"
@@ -865,7 +921,7 @@ export default function TipificacoesPage() {
                 </div>
             ) : null}
 
-            {formularioContextual ? (
+            {podeGerenciar && formularioContextual ? (
                 <div
                     className="fixed inset-0 z-[60] grid place-items-center bg-black/45 p-4"
                     role="presentation"
@@ -935,6 +991,46 @@ export default function TipificacoesPage() {
                                             onChange={(event) => setFormularioContextual((atual) => atual?.tipo === "tipificacao" || !atual ? atual : { ...atual, description: event.target.value })}
                                         />
                                     </label>
+                                    {formularioContextual.tipo === "taxonomia" && !formularioContextual.taxonomia ? (
+                                        <fieldset className="grid gap-4 rounded-lg border border-line bg-subtle-hover/40 p-4">
+                                            <legend className="px-1 text-sm font-bold">Primeiro ramo</legend>
+                                            <p className="text-sm leading-6 text-muted">
+                                                Toda taxonomia precisa de pelo menos um ramo para ser criada.
+                                            </p>
+                                            <label className="grid gap-2">
+                                                <span className="text-sm font-bold">Título do ramo</span>
+                                                <input
+                                                    className="h-11 rounded-lg border border-line bg-input-bg px-3 outline-none focus:border-brand"
+                                                    value={formularioContextual.primeiroRamo.title}
+                                                    disabled={salvandoFormulario}
+                                                    onChange={(event) => setFormularioContextual((atual) =>
+                                                        atual?.tipo === "taxonomia" && !atual.taxonomia
+                                                            ? {
+                                                                ...atual,
+                                                                primeiroRamo: { ...atual.primeiroRamo, title: event.target.value },
+                                                            }
+                                                            : atual
+                                                    )}
+                                                />
+                                            </label>
+                                            <label className="grid gap-2">
+                                                <span className="text-sm font-bold">Descrição do ramo</span>
+                                                <textarea
+                                                    className="min-h-24 rounded-lg border border-line bg-input-bg px-3 py-2 outline-none focus:border-brand"
+                                                    value={formularioContextual.primeiroRamo.description}
+                                                    disabled={salvandoFormulario}
+                                                    onChange={(event) => setFormularioContextual((atual) =>
+                                                        atual?.tipo === "taxonomia" && !atual.taxonomia
+                                                            ? {
+                                                                ...atual,
+                                                                primeiroRamo: { ...atual.primeiroRamo, description: event.target.value },
+                                                            }
+                                                            : atual
+                                                    )}
+                                                />
+                                            </label>
+                                        </fieldset>
+                                    ) : null}
                                 </>
                             )}
                         </div>
@@ -1132,7 +1228,7 @@ export default function TipificacoesPage() {
                 </div>
             ) : null}
 
-            {remocaoPendente ? (
+            {podeGerenciar && remocaoPendente ? (
                 <ConfirmacaoDialogo
                     carregando={removendoRegistro}
                     descricao={`Remover ${remocaoPendente.tipo === "taxonomia" ? "a taxonomia" : "o ramo"} “${remocaoPendente.tipo === "taxonomia" ? remocaoPendente.taxonomia.title : remocaoPendente.ramo.title}”? Esta ação não pode ser desfeita.`}
@@ -1142,7 +1238,7 @@ export default function TipificacoesPage() {
                 />
             ) : null}
 
-            {tipificacaoParaExcluir ? (
+            {podeGerenciar && tipificacaoParaExcluir ? (
                 <ConfirmacaoDialogo
                     carregando={excluindoTipificacao}
                     descricao={`Excluir “${tipificacaoParaExcluir.name}” e todas as suas taxonomias e ramos? Esta ação não pode ser desfeita.`}
@@ -1190,7 +1286,7 @@ export default function TipificacoesPage() {
                         </header>
 
                         <div className="mt-4 grid gap-3">
-                            {tipificacaoDaTaxonomiaSelecionada ? (
+                            {podeGerenciar && tipificacaoDaTaxonomiaSelecionada ? (
                                 <button
                                     className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-line bg-input-bg px-3 text-sm font-bold text-ink transition hover:border-brand"
                                     type="button"
@@ -1209,7 +1305,7 @@ export default function TipificacoesPage() {
                                     <article className="rounded-lg border border-line bg-input-bg p-4" key={ramo.id}>
                                         <div className="flex items-start justify-between gap-3">
                                             <strong className="font-display text-base">{ramo.title}</strong>
-                                            {tipificacaoDaTaxonomiaSelecionada ? (
+                                            {podeGerenciar && tipificacaoDaTaxonomiaSelecionada ? (
                                                 <div className="flex shrink-0 gap-2">
                                                     <button
                                                         className="inline-flex size-8 items-center justify-center rounded-md text-muted transition hover:bg-subtle-hover hover:text-ink"

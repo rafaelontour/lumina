@@ -2,10 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, Moon, PanelLeftClose, Sun } from "lucide-react";
+import { LogOut, Menu, Moon, PanelLeftClose, Sun } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import logoLaranja from "@/public/lumina_laranja.png";
 import logoBranco from "@/public/lumina_branco.png";
+import { useAuth } from "../data/provider/AuthProvider";
 import { useTheme } from "../data/provider/ThemeProvider";
 
 interface CabecalhoProps {
@@ -15,9 +18,20 @@ interface CabecalhoProps {
 
 export default function Cabecalho({ menuRecolhido, aoAlternarMenu }: CabecalhoProps) {
     const { resolvedTheme, setTheme } = useTheme();
+    const { encerrarSessao } = useAuth();
+    const router = useRouter();
 
     function alternarTema() {
         setTheme(resolvedTheme === "dark" ? "light" : "dark");
+    }
+
+    async function sairDaPlataforma() {
+        const err = await encerrarSessao();
+        if (err) {
+            toast.error(err.message);
+            return;
+        }
+        router.replace("/login");
     }
 
     return (
@@ -54,17 +68,28 @@ export default function Cabecalho({ menuRecolhido, aoAlternarMenu }: CabecalhoPr
                 </Link>
             </div>
 
-            <button
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-line bg-input-bg px-3 font-semibold text-ink transition hover:border-brand hover:bg-subtle-hover"
-                type="button"
-                onClick={alternarTema}
-                aria-label="Alternar tema"
-            >
-                <Moon size={18} className="dark:hidden" />
-                <Sun size={18} className="hidden dark:block" />
-                <span className="hidden sm:inline dark:hidden">Escuro</span>
-                <span className="hidden sm:dark:inline">Claro</span>
-            </button>
+            <div className="flex items-center gap-2">
+                <button
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-line bg-input-bg px-3 font-semibold text-ink transition hover:border-brand hover:bg-subtle-hover"
+                    type="button"
+                    onClick={alternarTema}
+                    aria-label="Alternar tema"
+                >
+                    <Moon size={18} className="dark:hidden" />
+                    <Sun size={18} className="hidden dark:block" />
+                    <span className="hidden sm:inline dark:hidden">Escuro</span>
+                    <span className="hidden sm:dark:inline">Claro</span>
+                </button>
+                <button
+                    className="inline-flex size-10 items-center justify-center rounded-full border border-line bg-input-bg text-ink transition hover:border-accent hover:text-accent"
+                    type="button"
+                    onClick={() => void sairDaPlataforma()}
+                    aria-label="Sair da plataforma"
+                    title="Sair"
+                >
+                    <LogOut size={18} />
+                </button>
+            </div>
         </header>
     )
 }

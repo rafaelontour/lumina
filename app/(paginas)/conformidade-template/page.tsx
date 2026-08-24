@@ -1,13 +1,5 @@
-import { FileCheck2 } from "lucide-react";
-
-import PaginaEmConstrucao from "@/app/components/PaginaEmConstrucao";
+import ConformidadeTemplateWorkspace from "@/app/components/ConformidadeTemplateWorkspace";
 
 export default function ConformidadeTemplatePage() {
-    return (
-        <PaginaEmConstrucao
-            titulo="Conformidade Template"
-            descricao="Esta tela concentrará verificações de estrutura, presença de seções obrigatórias e aderência ao template institucional."
-            icone={FileCheck2}
-        />
-    );
+    return <ConformidadeTemplateWorkspace />;
 }
