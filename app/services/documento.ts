@@ -449,12 +449,6 @@ export function selecionarReleaseAnalisado(releases: ReleaseExterno[], releaseId
     return releases.find(releasePossuiAnalise);
 }
 
-function documentoMaisRecente(documentos: DocumentoExterno[]) {
-    return [...documentos].sort(
-        (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
-    )[0];
-}
-
 function ultimaRelease(releases: ReleaseExterno[]) {
     return releases[0];
 }
@@ -513,25 +507,43 @@ export async function carregarWorkspaceDocumentos(): Promise<[DocumentoProjeto[]
                         );
                         if (documentosExternosErr) throw documentosExternosErr;
 
-                        const backendDocument = documentoMaisRecente(documentosExternos);
-                        const [releases, releasesErr]: [ReleaseExterno[], Error | null] = backendDocument
-                            ? await listarReleasesDocumento(backendDocument.id)
-                            : [[], null];
-                        if (releasesErr) throw releasesErr;
+                        const documentosExternosOrdenados = [...documentosExternos].sort(
+                            (documentoA, documentoB) => new Date(documentoB.created_at ?? 0).getTime() - new Date(documentoA.created_at ?? 0).getTime()
+                        );
+                        const documentosComReleases = await Promise.all(
+                            documentosExternosOrdenados.map(async (documentoExterno) => {
+                                const [releases, releasesErr] = await listarReleasesDocumento(documentoExterno.id);
+                                if (releasesErr) throw releasesErr;
 
-                        const latestRelease = ultimaRelease(releases);
-                        const releaseAnalisado = selecionarReleaseAnalisado(releases, latestRelease?.id);
+                                return { documentoExterno, releases };
+                            })
+                        );
+                        const documentoAtual = documentosComReleases[0];
+                        const backendDocument = documentoAtual?.documentoExterno;
+                        const latestRelease = ultimaRelease(documentoAtual?.releases ?? []);
+                        const releaseAnalisado = documentosComReleases.reduce<{ documentoExterno: DocumentoExterno; release: ReleaseExterno } | null>(
+                            (maisRecente, item) => {
+                                const release = selecionarReleaseAnalisado(item.releases, item.releases[0]?.id);
+                                if (!release) return maisRecente;
+                                if (!maisRecente || new Date(release.created_at).getTime() > new Date(maisRecente.release.created_at).getTime()) {
+                                    return { documentoExterno: item.documentoExterno, release };
+                                }
+
+                                return maisRecente;
+                            },
+                            null
+                        );
                         const analysisReady = releasePossuiAnalise(latestRelease);
 
-                        const criarVersao = (release: ReleaseExterno, pronta: boolean) => ({
+                        const criarVersao = (documentoExterno: DocumentoExterno, release: ReleaseExterno, pronta: boolean) => ({
                             id: release.id,
-                            documentId: backendDocument!.id,
-                            externalDocumentId: backendDocument!.id,
+                            documentId: documentoExterno.id,
+                            externalDocumentId: documentoExterno.id,
                             externalReleaseId: release.id,
                             filePath: release.file_path,
                             analysisStatus: pronta ? "ready" as const : "pending" as const,
                             analysisCheckedAt: new Date().toISOString(),
-                            fileName: backendDocument!.name || projectDocument.name,
+                            fileName: documentoExterno.name || projectDocument.name,
                             uploadedAt: release.created_at,
                             pageCount: 0,
                             feedbackCount: release.check_tree?.length ?? 0,
@@ -552,11 +564,11 @@ export async function carregarWorkspaceDocumentos(): Promise<[DocumentoProjeto[]
                             description: `Envie o arquivo correspondente à seção ${projectDocument.name}.`,
                             versions:
                                 backendDocument && latestRelease
-                                    ? [criarVersao(latestRelease, analysisReady)]
+                                    ? [criarVersao(backendDocument, latestRelease, analysisReady)]
                                     : [],
                             ultimaVersaoPronta:
-                                backendDocument && releaseAnalisado && releaseAnalisado.id !== latestRelease?.id
-                                    ? criarVersao(releaseAnalisado, true)
+                                releaseAnalisado && releaseAnalisado.release.id !== latestRelease?.id
+                                    ? criarVersao(releaseAnalisado.documentoExterno, releaseAnalisado.release, true)
                                     : undefined,
                         };
                     })

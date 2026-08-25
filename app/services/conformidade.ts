@@ -111,8 +111,35 @@ function obterResultadoMaisRecente(resultados: ResultadoProcessamentoConformidad
 
 export function filtrarResultadosConformidadeAbntDaVersao(
     resultados: ResultadoProcessamentoConformidade[],
-    versaoEnviadaEm?: string
+    versaoEnviadaEm?: string,
+    caminhoArquivo?: string
 ) {
+    const caminhoNormalizado = caminhoArquivo?.trim();
+    if (caminhoNormalizado) {
+        const resultadosDoArquivo = resultados.filter((resultado) => resultado.file_path?.trim() === caminhoNormalizado);
+        if (resultadosDoArquivo.length > 0) return resultadosDoArquivo;
+    }
+
+    const horarioVersao = versaoEnviadaEm ? Date.parse(versaoEnviadaEm) : Number.NaN;
+    if (Number.isNaN(horarioVersao)) return resultados;
+
+    return resultados.filter((resultado) => {
+        const horarioResultado = Date.parse(resultado.created_at);
+        return Number.isNaN(horarioResultado) || horarioResultado >= horarioVersao;
+    });
+}
+
+export function filtrarResultadosConformidadeTemplateDaVersao(
+    resultados: ResultadoProcessamentoConformidade[],
+    versaoEnviadaEm?: string,
+    caminhoArquivo?: string
+) {
+    const caminhoNormalizado = caminhoArquivo?.trim();
+    if (caminhoNormalizado) {
+        const resultadosDoArquivo = resultados.filter((resultado) => resultado.file_path?.trim() === caminhoNormalizado);
+        if (resultadosDoArquivo.length > 0) return resultadosDoArquivo;
+    }
+
     const horarioVersao = versaoEnviadaEm ? Date.parse(versaoEnviadaEm) : Number.NaN;
     if (Number.isNaN(horarioVersao)) return resultados;
 
@@ -135,6 +162,27 @@ export function selecionarResultadoConformidadeAbnt(
     if (!resultado?.doc_id || !resultado.status) return null;
 
     return {
+        id: resultado.id,
+        doc_id: resultado.doc_id,
+        status: resultado.status,
+        updated_at: resultado.updated_at,
+        report: resultado.report && typeof resultado.report === "object" ? resultado.report : null,
+        error: typeof resultado.error === "string" ? resultado.error : null,
+    };
+}
+
+export function selecionarResultadoConformidadeTemplate(
+    resultados: ResultadoProcessamentoConformidade[],
+    opcoes?: { preferirResultadoTerminal?: boolean }
+): ResultadoConformidadeTemplate | null {
+    const resultadosTerminais = resultados.filter((resultado) => resultado.status !== "processing");
+    const resultado = opcoes?.preferirResultadoTerminal
+        ? obterResultadoMaisRecente(resultadosTerminais) ?? obterResultadoMaisRecente(resultados)
+        : obterResultadoMaisRecente(resultados);
+    if (!resultado?.doc_id || !resultado.status) return null;
+
+    return {
+        id: resultado.id,
         doc_id: resultado.doc_id,
         status: resultado.status,
         updated_at: resultado.updated_at,
@@ -144,28 +192,16 @@ export function selecionarResultadoConformidadeAbnt(
 }
 
 export async function obterResultadoConformidadeTemplate(
-    docId: string
+    docId: string,
+    opcoes?: { versaoEnviadaEm?: string; preferirResultadoTerminal?: boolean }
 ): Promise<[ResultadoConformidadeTemplate | null, Error | null]> {
     const [resultados, err] = await listarHistoricoConformidadeTemplate(docId);
     if (err) return [null, err];
 
-    if (resultados.length === 0) return [null, null];
-
-    const resultado = obterResultadoMaisRecente(resultados);
-    if (!resultado?.doc_id || !resultado.status) {
-        return [null, new Error("A API retornou um resultado de conformidade inválido.")];
-    }
-
-    return [
-        {
-            doc_id: resultado.doc_id,
-            status: resultado.status,
-            updated_at: resultado.updated_at,
-            report: resultado.report && typeof resultado.report === "object" ? resultado.report : null,
-            error: typeof resultado.error === "string" ? resultado.error : null,
-        },
-        null,
-    ];
+    return [selecionarResultadoConformidadeTemplate(
+        filtrarResultadosConformidadeTemplateDaVersao(resultados, opcoes?.versaoEnviadaEm),
+        opcoes
+    ), null];
 }
 
 export async function listarHistoricoConformidadeTemplate(
@@ -244,9 +280,7 @@ export async function listarDocumentosConformidade(): Promise<[AlvoDocumentoConf
             documento.components.flatMap((componente) => {
                 const versaoAtual = componente.versions[0];
                 const novaVersaoEmAnalise = versaoAtual?.analysisStatus === "pending";
-                const versao = novaVersaoEmAnalise
-                    ? componente.ultimaVersaoPronta ?? versaoAtual
-                    : versaoAtual;
+                const versao = versaoAtual;
                 const documentId = componente.projectDocumentId ?? componente.key;
 
                 return [{

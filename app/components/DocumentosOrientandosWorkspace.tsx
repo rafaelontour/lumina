@@ -45,23 +45,56 @@ function formatarData(data?: string | null) {
     }).format(valor);
 }
 
+function normalizarStatus(status?: string | null) {
+    return status?.trim().toUpperCase() || null;
+}
+
+function timestamp(data?: string | null) {
+    if (!data) return Number.NEGATIVE_INFINITY;
+
+    const valor = new Date(data).getTime();
+    return Number.isNaN(valor) ? Number.NEGATIVE_INFINITY : valor;
+}
+
+function statusMaisRecenteHistorico(documento: DocumentoOrientando) {
+    const historico = documento.history ?? [];
+    if (historico.length === 0) return null;
+
+    const maisRecente = historico.reduce((atual, item) =>
+        timestamp(item.updated_at ?? item.created_at) > timestamp(atual.updated_at ?? atual.created_at) ? item : atual
+    );
+
+    return normalizarStatus(maisRecente.status);
+}
+
+function statusExibido(documento: DocumentoOrientando) {
+    const statusHistorico = statusMaisRecenteHistorico(documento);
+    return statusHistorico === "COMPLETED" ? statusHistorico : normalizarStatus(documento.processing_status);
+}
+
 function rotuloStatus(status?: string | null) {
     const rotulos: Record<string, string> = {
         IDLE: "Aguardando",
+        QUEUED: "Na fila de processamento",
         WAITING_FOR_REVIEW: "Aguardando revisão",
         PROCESSING: "Processando",
         COMPLETED: "Concluído",
         ERROR: "Erro no processamento",
+        FAILED: "Falha no processamento",
+        PENDING: "Pendente",
+        UNDER_CONSTRUCTION: "Em elaboração",
     };
 
-    if (!status) return "Sem status";
-    return rotulos[status] ?? status.replaceAll("_", " ");
+    const statusNormalizado = normalizarStatus(status);
+    if (!statusNormalizado) return "Sem status";
+    return rotulos[statusNormalizado] ?? "Status indisponível";
 }
 
 function classeStatus(status?: string | null) {
-    if (status === "COMPLETED") return "border-brand/40 bg-subtle-hover text-ink";
-    if (status === "ERROR") return "border-laranja/40 bg-laranja/10 text-laranja";
-    if (status === "PROCESSING" || status === "WAITING_FOR_REVIEW") return "border-accent/40 bg-accent/10 text-accent";
+    const statusNormalizado = normalizarStatus(status);
+    if (statusNormalizado === "COMPLETED") return "border-brand/40 bg-subtle-hover text-ink";
+    if (statusNormalizado === "ERROR" || statusNormalizado === "FAILED") return "border-laranja/40 bg-laranja/10 text-laranja";
+    if (statusNormalizado === "PROCESSING" || statusNormalizado === "QUEUED" || statusNormalizado === "WAITING_FOR_REVIEW") return "border-accent/40 bg-accent/10 text-accent";
     return "border-line bg-input-bg text-muted";
 }
 
@@ -287,22 +320,26 @@ function DocumentosPorOrientando({ orientando, documentos }: { orientando: Carta
                             {grupos.map(({ grupo, documentos: itens }) => (
                                 <div key={grupo} className="grid gap-2 px-3 py-2.5">
                                     <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">{grupo}</span>
-                                    {itens.map((documento) => (
-                                        <div key={documento.id} className="grid gap-2 text-sm md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
-                                            <div className="min-w-0">
-                                                <strong className="block truncate font-semibold text-ink">{documento.name}</strong>
-                                                <span className="text-xs text-muted">{documento.tipo_documento?.trim() || "Tipo não informado"} · Atualizado em {formatarData(documento.updated_at ?? documento.created_at)}</span>
+                                    {itens.map((documento) => {
+                                        const status = statusExibido(documento);
+
+                                        return (
+                                            <div key={documento.id} className="grid gap-2 text-sm md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
+                                                <div className="min-w-0">
+                                                    <strong className="block truncate font-semibold text-ink">{documento.name}</strong>
+                                                    <span className="text-xs text-muted">{documento.tipo_documento?.trim() || "Tipo não informado"} · Atualizado em {formatarData(documento.updated_at ?? documento.created_at)}</span>
+                                                </div>
+                                                <span className={`w-fit rounded-full border px-2 py-1 text-xs font-bold ${classeStatus(status)}`}>
+                                                    {rotuloStatus(status)}
+                                                </span>
+                                                {documento.is_archived ? (
+                                                    <span className="inline-flex w-fit items-center gap-1 text-xs font-semibold text-muted"><Archive size={14} /> Arquivado</span>
+                                                ) : (
+                                                    <span className="text-xs font-semibold text-brand">Ativo</span>
+                                                )}
                                             </div>
-                                            <span className={`w-fit rounded-full border px-2 py-1 text-xs font-bold ${classeStatus(documento.processing_status)}`}>
-                                                {rotuloStatus(documento.processing_status)}
-                                            </span>
-                                            {documento.is_archived ? (
-                                                <span className="inline-flex w-fit items-center gap-1 text-xs font-semibold text-muted"><Archive size={14} /> Arquivado</span>
-                                            ) : (
-                                                <span className="text-xs font-semibold text-brand">Ativo</span>
-                                            )}
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             ))}
                         </div>

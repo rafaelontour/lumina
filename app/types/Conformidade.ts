@@ -14,6 +14,7 @@ export type TemplateConformidade = {
 };
 
 export type ResultadoConformidadeTemplate = {
+    id?: string;
     doc_id: string;
     status: StatusProcessamentoConformidade;
     updated_at: string;
@@ -22,6 +23,7 @@ export type ResultadoConformidadeTemplate = {
 };
 
 export type ResultadoConformidadeAbnt = {
+    id?: string;
     doc_id: string;
     status: StatusProcessamentoConformidade;
     updated_at: string;

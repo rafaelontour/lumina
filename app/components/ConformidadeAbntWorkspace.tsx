@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, BookCheck, FileCheck2, FileText, FileWarning, History, Loader2, X } from "lucide-react";
+import { AlertTriangle, BookCheck, Eye, FileCheck2, FileText, FileWarning, History, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -20,12 +20,14 @@ import type {
 } from "@/app/types/Conformidade";
 
 const intervaloResultadoConformidadeMs = 5000;
+const intervaloAtualizacaoDocumentosMs = 5000;
 
 type EstadoResultadoCache = {
     resultado: ResultadoConformidadeAbnt | null;
-    estado: "idle" | "absent" | "error";
+    estado: "idle" | "absent" | "error" | "pending";
     erro: string;
     versaoJaAnalisada: boolean;
+    possuiAnaliseHistorica?: boolean;
     elegibilidadeResolvida: boolean;
 };
 
@@ -330,9 +332,31 @@ export default function ConformidadeAbntWorkspace() {
             } else {
                 setErroDocumentos("");
                 setDocumentos(itens);
-                const documentId = new URLSearchParams(window.location.search).get("documentId");
-                const alvoDaUrl = itens.find((item) => item.documentId === documentId);
-                if (alvoDaUrl) setAlvoSelecionadoId(alvoDaUrl.id);
+
+                const estadosIniciais = await Promise.all(itens.map(async (documento) => {
+                    if (!documento.documentId || !documento.filePath) return null;
+
+                    const [resultados, resultadosErr] = await listarHistoricoConformidadeAbnt(documento.documentId);
+                    if (resultadosErr) return null;
+
+                    const resultadosDaVersao = filtrarResultadosConformidadeAbntDaVersao(resultados, documento.uploadedAt, documento.filePath);
+                    return [documento.documentId, {
+                        resultado: null,
+                        estado: "pending",
+                        erro: "",
+                        versaoJaAnalisada: resultadosDaVersao.length > 0,
+                        possuiAnaliseHistorica: resultados.length > 0,
+                        elegibilidadeResolvida: true,
+                    }] as const;
+                }));
+                if (cancelado) return;
+
+                const cacheInicial: Record<string, EstadoResultadoCache> = {};
+                for (const estado of estadosIniciais) {
+                    if (estado) cacheInicial[estado[0]] = estado[1];
+                }
+                resultadosPorDocumentoRef.current = { ...cacheInicial, ...resultadosPorDocumentoRef.current };
+                setResultadosPorDocumento(resultadosPorDocumentoRef.current);
             }
 
             setCarregandoDocumentos(false);
@@ -343,6 +367,20 @@ export default function ConformidadeAbntWorkspace() {
             cancelado = true;
         };
     }, []);
+
+    useEffect(() => {
+        if (!documentos.some((documento) => documento.novaVersaoEmAnalise)) return;
+
+        const timer = window.setTimeout(async () => {
+            const [itens, err] = await listarDocumentosConformidadeAbnt();
+            if (err) return;
+
+            setDocumentos(itens);
+            setAlvoSelecionadoId((alvoAtual) => itens.some((item) => item.id === alvoAtual) ? alvoAtual : null);
+        }, intervaloAtualizacaoDocumentosMs);
+
+        return () => window.clearTimeout(timer);
+    }, [documentos]);
 
     const documentoSelecionado = useMemo(
         () => documentos.find((documento) => documento.id === alvoSelecionadoId) ?? null,
@@ -373,6 +411,7 @@ export default function ConformidadeAbntWorkspace() {
         if (!documentoSelecionado?.documentId || !documentoSelecionado.filePath) return;
         const documentId = documentoSelecionado.documentId;
         const versaoEnviadaEm = documentoSelecionado.uploadedAt;
+        const caminhoArquivo = documentoSelecionado.filePath;
         let cancelado = false;
         let timer: number | undefined;
 
@@ -395,13 +434,14 @@ export default function ConformidadeAbntWorkspace() {
                 return;
             }
 
-            const resultadosDaVersao = filtrarResultadosConformidadeAbntDaVersao(
-                resultados,
-                versaoEnviadaEm
-            );
-            const proximoResultado = selecionarResultadoConformidadeAbnt(resultadosDaVersao, {
+            const resultadosDaVersao = filtrarResultadosConformidadeAbntDaVersao(resultados, versaoEnviadaEm, caminhoArquivo);
+            const resultadosParaExibicao = resultadosDaVersao.length > 0 ? resultadosDaVersao : resultados;
+            const resultadoConsultado = selecionarResultadoConformidadeAbnt(resultadosParaExibicao, {
                 priorizarProcessamento: analisesAceitasAguardandoResultado.current.has(documentId),
             });
+            const resultadoAnterior = resultadosPorDocumentoRef.current[documentId]?.resultado;
+            const manterRelatorioAnterior = resultadoConsultado?.status === "processing" && resultadoAnterior?.status === "completed";
+            const proximoResultado = manterRelatorioAnterior ? resultadoAnterior : resultadoConsultado;
             const versaoJaAnalisada = versoesComAnaliseAceita.current.has(documentId) || resultadosDaVersao.length > 0;
 
             salvarResultado(documentId, {
@@ -409,15 +449,16 @@ export default function ConformidadeAbntWorkspace() {
                 estado: proximoResultado ? "idle" : "absent",
                 erro: "",
                 versaoJaAnalisada,
+                possuiAnaliseHistorica: resultados.length > 0,
                 elegibilidadeResolvida: true,
             });
 
-            if (!proximoResultado) {
+            if (!resultadoConsultado) {
                 if (analisesAceitasAguardandoResultado.current.has(documentId)) {
                     marcarDocumentoProcessando(documentId, true);
                     statusAnteriorPorDocumento.current[documentId] = "processing";
                     salvarResultado(documentId, {
-                        resultado: {
+                        resultado: resultadoAnterior?.status === "completed" ? resultadoAnterior : {
                             doc_id: documentId,
                             status: "processing",
                             updated_at: new Date().toISOString(),
@@ -427,6 +468,7 @@ export default function ConformidadeAbntWorkspace() {
                         estado: "idle",
                         erro: "",
                         versaoJaAnalisada: true,
+                        possuiAnaliseHistorica: true,
                         elegibilidadeResolvida: true,
                     });
                     timer = window.setTimeout(() => void carregarResultado(), intervaloResultadoConformidadeMs);
@@ -439,9 +481,9 @@ export default function ConformidadeAbntWorkspace() {
             }
 
             const statusAnterior = statusAnteriorPorDocumento.current[documentId];
-            statusAnteriorPorDocumento.current[documentId] = proximoResultado.status;
+            statusAnteriorPorDocumento.current[documentId] = resultadoConsultado.status;
 
-            if (proximoResultado.status === "processing") {
+            if (resultadoConsultado.status === "processing") {
                 if (!analisesAceitasAguardandoResultado.current.has(documentId)) {
                     marcarDocumentoProcessando(documentId, false);
                     return;
@@ -454,14 +496,14 @@ export default function ConformidadeAbntWorkspace() {
 
             analisesAceitasAguardandoResultado.current.delete(documentId);
             marcarDocumentoProcessando(documentId, false);
-            if (proximoResultado.status === "completed" && statusAnterior === "processing") {
-                notificarUmaVez(`${documentId}:completed:${proximoResultado.updated_at}`, "success", "A análise de conformidade ABNT foi concluída.");
+            if (resultadoConsultado.status === "completed" && statusAnterior === "processing") {
+                notificarUmaVez(`${documentId}:completed:${resultadoConsultado.updated_at}`, "success", "A análise de conformidade ABNT foi concluída.");
             }
-            if (proximoResultado.status === "error") {
+            if (resultadoConsultado.status === "error") {
                 notificarUmaVez(
-                    `${documentId}:backend:${proximoResultado.updated_at}:${proximoResultado.error ?? "sem-detalhe"}`,
+                    `${documentId}:backend:${resultadoConsultado.updated_at}:${resultadoConsultado.error ?? "sem-detalhe"}`,
                     "error",
-                    proximoResultado.error ?? "A análise de conformidade ABNT falhou."
+                    resultadoConsultado.error ?? "A análise de conformidade ABNT falhou."
                 );
             }
         }
@@ -474,7 +516,7 @@ export default function ConformidadeAbntWorkspace() {
     }, [documentoSelecionado, marcarDocumentoProcessando, notificarUmaVez, salvarResultado, versaoConsulta]);
 
     async function iniciarAnaliseAbnt() {
-        if (!documentoSelecionado?.documentId || !documentoSelecionado.filePath || documentoSelecionado.novaVersaoEmAnalise || iniciandoAnalise) return;
+        if (!documentoSelecionado?.documentId || !documentoSelecionado.filePath || iniciandoAnalise) return;
         const documentId = documentoSelecionado.documentId;
         const estadoAtual = resultadosPorDocumentoRef.current[documentId];
         if (!estadoAtual?.elegibilidadeResolvida || estadoAtual.versaoJaAnalisada) return;
@@ -492,8 +534,9 @@ export default function ConformidadeAbntWorkspace() {
             if (err) throw err;
             if (!aceite) throw new Error("A API não confirmou o início da análise de conformidade ABNT.");
 
+            const resultadoAnterior = resultadosPorDocumentoRef.current[documentId]?.resultado;
             salvarResultado(documentId, {
-                resultado: {
+                resultado: aceite.status === "processing" && resultadoAnterior?.status === "completed" ? resultadoAnterior : {
                     doc_id: aceite.doc_id,
                     status: aceite.status,
                     updated_at: new Date().toISOString(),
@@ -503,6 +546,7 @@ export default function ConformidadeAbntWorkspace() {
                 estado: "idle",
                 erro: "",
                 versaoJaAnalisada: true,
+                possuiAnaliseHistorica: true,
                 elegibilidadeResolvida: true,
             });
             statusAnteriorPorDocumento.current[documentId] = aceite.status;
@@ -550,9 +594,11 @@ export default function ConformidadeAbntWorkspace() {
         ? resultadosPorDocumento[documentoSelecionado.documentId]
         : undefined;
     const resultadoVisivel = estadoResultadoVisivel?.resultado ?? null;
-    const statusResultadoVisivel = documentoSelecionado ? estadoResultadoVisivel?.estado ?? "loading" : "idle";
+    const statusResultadoVisivel = documentoSelecionado
+        ? estadoResultadoVisivel?.estado === "pending" ? "loading" : estadoResultadoVisivel?.estado ?? "loading"
+        : "idle";
     const semDocumentos = !carregandoDocumentos && !erroDocumentos && documentos.length === 0;
-    const analiseProcessando = resultadoVisivel?.status === "processing";
+    const analiseProcessando = Boolean(documentoSelecionado?.documentId && documentosProcessando.has(documentoSelecionado.documentId)) || resultadoVisivel?.status === "processing";
     const versaoJaAnalisada = Boolean(estadoResultadoVisivel?.versaoJaAnalisada);
     const elegibilidadeResolvida = Boolean(estadoResultadoVisivel?.elegibilidadeResolvida);
     const relatorioAbnt = resultadoVisivel?.status === "completed" ? normalizarRelatorioAbnt(resultadoVisivel.report) : null;
@@ -585,7 +631,7 @@ export default function ConformidadeAbntWorkspace() {
                                 {grupo.documentos.map((documento) => (
                                     (() => {
                                         const documentoProcessando = Boolean(documento.documentId && documentosProcessando.has(documento.documentId));
-                                        const documentoAnalisado = !documentoProcessando && Boolean(documento.documentId && resultadosPorDocumento[documento.documentId]?.versaoJaAnalisada);
+                                        const documentoAnalisado = !documentoProcessando && Boolean(documento.documentId && resultadosPorDocumento[documento.documentId]?.possuiAnaliseHistorica);
                                         const documentoSelecionado = documento.id === alvoSelecionadoId;
 
                                         return <button
@@ -613,16 +659,16 @@ export default function ConformidadeAbntWorkspace() {
                             <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-input-bg p-4">
                                 <div className="min-w-0 flex-1">
                                     <strong className="block font-display text-sm text-ink">{documentoSelecionado.fileName}</strong>
-                                    <span className="mt-1 block text-sm text-muted">{documentoSelecionado.novaVersaoEmAnalise ? "Uma nova versão está sendo analisada em Documentos. A versão anterior permanece visível até ela ficar pronta." : versaoJaAnalisada ? "Esta versão já possui uma análise ABNT. Envie uma nova versão em Documentos para habilitar outra análise." : "A referência ABNT é definida pelo sistema."}</span>
+                                    <span className="mt-1 block text-sm text-muted">{documentoSelecionado.novaVersaoEmAnalise ? "Uma nova versão foi enviada em Documentos. Você já pode iniciar uma análise para ela; o último relatório permanece visível como referência." : versaoJaAnalisada ? "Esta versão já possui uma análise ABNT. Envie uma nova versão em Documentos para habilitar outra análise." : "A referência ABNT é definida pelo sistema."}</span>
                                 </div>
                                 <button
                                     className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto"
                                     type="button"
-                                    disabled={iniciandoAnalise || analiseProcessando || documentoSelecionado.novaVersaoEmAnalise || versaoJaAnalisada || !elegibilidadeResolvida || !documentoSelecionado.documentId || !documentoSelecionado.filePath}
+                                    disabled={iniciandoAnalise || analiseProcessando || versaoJaAnalisada || !elegibilidadeResolvida || !documentoSelecionado.documentId || !documentoSelecionado.filePath}
                                     onClick={() => void iniciarAnaliseAbnt()}
                                 >
                                     {iniciandoAnalise || analiseProcessando ? <Loader2 className="animate-spin motion-reduce:animate-none" size={18} /> : <FileCheck2 size={18} />}
-                                    {iniciandoAnalise ? "Iniciando análise..." : analiseProcessando ? "Análise em andamento" : documentoSelecionado.novaVersaoEmAnalise ? "Nova versão em análise" : versaoJaAnalisada ? "Análise já realizada" : "Iniciar análise"}
+                                    {iniciandoAnalise ? "Iniciando análise..." : analiseProcessando ? "Análise em andamento" : versaoJaAnalisada ? "Análise já realizada" : "Iniciar análise"}
                                 </button>
                                 <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-4 font-display text-sm font-semibold text-ink transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55" type="button" disabled={!documentoSelecionado.documentId} onClick={() => void abrirHistorico()}>
                                     <History size={18} /> Histórico
@@ -666,17 +712,25 @@ export default function ConformidadeAbntWorkspace() {
                             {!carregandoHistorico && !erroHistorico && historico.length > 0 ? (
                                 <ol className="grid gap-3">
                                     {historico.map((resultado) => (
-                                        <li className="grid gap-3 rounded-lg border border-line bg-input-bg p-4" key={resultado.id}>
+                                        (() => {
+                                            const emVisualizacao = resultado.id === resultadoVisivel?.id
+                                                || (!resultadoVisivel?.id && resultado.updated_at === resultadoVisivel?.updated_at && resultado.status === resultadoVisivel.status);
+
+                                            return <li className={`grid gap-3 rounded-lg border p-4 ${emVisualizacao ? "border-brand bg-subtle-hover shadow-[0_0_0_1px_var(--brand)]" : "border-line bg-input-bg"}`} key={resultado.id}>
                                             <div className="flex flex-wrap items-center justify-between gap-2">
                                                 <strong className="font-display text-base text-ink">Análise {resultado.id.slice(0, 8)}</strong>
-                                                <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${classeStatus(resultado.status)}`}>{rotuloStatus(resultado.status)}</span>
+                                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                                    {emVisualizacao ? <span className="inline-flex items-center gap-1 rounded-full border border-brand/40 bg-panel px-2.5 py-1 text-xs font-bold text-ink"><Eye size={13} />Em visualização</span> : null}
+                                                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${classeStatus(resultado.status)}`}>{rotuloStatus(resultado.status)}</span>
+                                                </div>
                                             </div>
                                             <dl className="grid gap-2 text-sm sm:grid-cols-2">
                                                 <div><dt className="text-xs font-bold uppercase tracking-wide text-muted">Criada em</dt><dd className="mt-1 text-ink">{formatarData(resultado.created_at)}</dd></div>
                                                 <div><dt className="text-xs font-bold uppercase tracking-wide text-muted">Atualizada em</dt><dd className="mt-1 text-ink">{formatarData(resultado.updated_at)}</dd></div>
                                             </dl>
                                             {resultado.error ? <p className="rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent">{resultado.error}</p> : null}
-                                        </li>
+                                            </li>;
+                                        })()
                                     ))}
                                 </ol>
                             ) : null}

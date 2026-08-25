@@ -1,15 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ChevronDown, FileCheck2, FileWarning, History, Loader2, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, Eye, FileCheck2, FileText, FileWarning, History, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
     enviarConformidadeTemplate,
+    filtrarResultadosConformidadeTemplateDaVersao,
     listarDocumentosConformidade,
     listarHistoricoConformidadeTemplate,
     listarTemplatesConformidade,
-    obterResultadoConformidadeTemplate,
+    selecionarResultadoConformidadeTemplate,
 } from "@/app/services/conformidade";
 import { baixarArquivoPdfRelease } from "@/app/services/oiac";
 import type {
@@ -21,6 +22,7 @@ import type {
 } from "@/app/types/Conformidade";
 
 const intervaloResultadoConformidadeMs = 5000;
+const intervaloAtualizacaoDocumentosMs = 5000;
 
 type Registro = Record<string, unknown>;
 
@@ -53,7 +55,7 @@ type SecaoTemplate = {
 };
 
 type RelatorioTemplate = {
-    metadados: Array<{ rotulo: string; valor: string }>;
+    metadados: Array<{ chave: string; rotulo: string; valor: string }>;
     emConformidade?: boolean;
     secoesPassaram?: number;
     secoesTotal?: number;
@@ -70,9 +72,16 @@ type GrupoDocumentosConformidade = {
 
 type EstadoResultadoCache = {
     resultado: ResultadoConformidadeTemplate | null;
-    estado: "idle" | "absent" | "error";
+    estado: "idle" | "absent" | "error" | "pending";
     erro: string;
+    versaoJaAnalisada: boolean;
+    possuiAnaliseHistorica?: boolean;
+    elegibilidadeResolvida: boolean;
 };
+
+function chaveResultadoDocumento(documento: AlvoDocumentoConformidade) {
+    return `${documento.documentId ?? documento.id}:${documento.releaseId ?? documento.uploadedAt ?? documento.filePath ?? "sem-versao"}`;
+}
 
 function horarioResultadoHistorico(resultado: ResultadoProcessamentoConformidade) {
     const horario = Date.parse(resultado.updated_at);
@@ -116,6 +125,11 @@ function rotuloMetadado(chave: string) {
     };
 
     return rotulos[chave] ?? chave.replace(/_/g, " ").replace(/^./, (letra) => letra.toUpperCase());
+}
+
+function nomeArquivoSeguro(caminho: string) {
+    const ultimoSegmento = caminho.trim().split(/[\\/]/).at(-1)?.split(/[?#]/)[0]?.trim();
+    return ultimoSegmento || "Arquivo não informado";
 }
 
 function normalizarRelatorio(valor: Record<string, unknown> | null): RelatorioTemplate | null {
@@ -175,6 +189,7 @@ function normalizarRelatorio(valor: Record<string, unknown> | null): RelatorioTe
             ? Object.entries(metadata).flatMap(([chave, valor]) => {
                 if (typeof valor !== "string" || !valor.trim()) return [];
                 return [{
+                    chave,
                     rotulo: rotuloMetadado(chave),
                     valor: chave === "approach" ? descreverAbordagemParaUsuario(valor) : valor,
                 }];
@@ -305,9 +320,9 @@ export default function ConformidadeTemplateWorkspace() {
     const [erroHistorico, setErroHistorico] = useState("");
     const statusAnteriorPorDocumento = useRef<Record<string, StatusProcessamentoConformidade | "absent">>({});
     const analisesAceitasAguardandoResultado = useRef(new Set<string>());
-    const notificacoesErro = useRef(new Set<string>());
-    const notificacoesConclusao = useRef(new Set<string>());
+    const notificacoes = useRef(new Set<string>());
     const resultadosPorDocumentoRef = useRef<Record<string, EstadoResultadoCache>>({});
+    const versoesComAnaliseAceita = useRef(new Set<string>());
 
     const salvarResultado = useCallback((documentId: string, estado: EstadoResultadoCache) => {
         resultadosPorDocumentoRef.current = { ...resultadosPorDocumentoRef.current, [documentId]: estado };
@@ -321,6 +336,13 @@ export default function ConformidadeTemplateWorkspace() {
             else proximos.delete(documentId);
             return proximos;
         });
+    }, []);
+
+    const notificarUmaVez = useCallback((chave: string, tipo: "success" | "error", mensagem: string) => {
+        if (notificacoes.current.has(chave)) return;
+
+        notificacoes.current.add(chave);
+        toast[tipo](mensagem);
     }, []);
 
     useEffect(() => {
@@ -337,10 +359,31 @@ export default function ConformidadeTemplateWorkspace() {
             } else {
                 setErroDocumentos("");
                 setDocumentos(itens);
-                const documentId = new URLSearchParams(window.location.search).get("documentId");
-                if (documentId && itens.some((item) => item.documentId === documentId)) {
-                    setAlvoSelecionadoId(itens.find((item) => item.documentId === documentId)?.id ?? null);
+
+                const estadosIniciais = await Promise.all(itens.map(async (documento) => {
+                    if (!documento.documentId || !documento.filePath) return null;
+
+                    const [resultados, resultadosErr] = await listarHistoricoConformidadeTemplate(documento.documentId);
+                    if (resultadosErr) return null;
+
+                    const resultadosDaVersao = filtrarResultadosConformidadeTemplateDaVersao(resultados, documento.uploadedAt, documento.filePath);
+                    return [chaveResultadoDocumento(documento), {
+                        resultado: null,
+                        estado: "pending",
+                        erro: "",
+                        versaoJaAnalisada: resultadosDaVersao.length > 0,
+                        possuiAnaliseHistorica: resultados.length > 0,
+                        elegibilidadeResolvida: true,
+                    }] as const;
+                }));
+                if (cancelado) return;
+
+                const cacheInicial: Record<string, EstadoResultadoCache> = {};
+                for (const estado of estadosIniciais) {
+                    if (estado) cacheInicial[estado[0]] = estado[1];
                 }
+                resultadosPorDocumentoRef.current = { ...cacheInicial, ...resultadosPorDocumentoRef.current };
+                setResultadosPorDocumento(resultadosPorDocumentoRef.current);
             }
             setCarregandoDocumentos(false);
         }
@@ -350,6 +393,20 @@ export default function ConformidadeTemplateWorkspace() {
             cancelado = true;
         };
     }, []);
+
+    useEffect(() => {
+        if (!documentos.some((documento) => documento.novaVersaoEmAnalise)) return;
+
+        const timer = window.setTimeout(async () => {
+            const [itens, err] = await listarDocumentosConformidade();
+            if (err) return;
+
+            setDocumentos(itens);
+            setAlvoSelecionadoId((alvoAtual) => itens.some((item) => item.id === alvoAtual) ? alvoAtual : null);
+        }, intervaloAtualizacaoDocumentosMs);
+
+        return () => window.clearTimeout(timer);
+    }, [documentos]);
 
     useEffect(() => {
         void listarTemplatesConformidade().then(setTemplates);
@@ -384,37 +441,57 @@ export default function ConformidadeTemplateWorkspace() {
     useEffect(() => {
         if (!documentoSelecionado?.documentId || !documentoSelecionado.filePath) return;
         const documentId = documentoSelecionado.documentId;
+        const versaoEnviadaEm = documentoSelecionado.uploadedAt;
+        const caminhoArquivo = documentoSelecionado.filePath;
+        const novaVersaoEmAnalise = documentoSelecionado.novaVersaoEmAnalise;
+        const chaveResultado = chaveResultadoDocumento(documentoSelecionado);
 
         let cancelado = false;
         let timer: number | undefined;
 
         async function carregarResultado() {
-            const [proximoResultado, err] = await obterResultadoConformidadeTemplate(documentId);
+            const [resultados, err] = await listarHistoricoConformidadeTemplate(documentId);
             if (cancelado) return;
 
             if (err) {
-                salvarResultado(documentId, { resultado: null, estado: "error", erro: err.message });
+                const analiseJaAceita = versoesComAnaliseAceita.current.has(chaveResultado);
+                salvarResultado(chaveResultado, {
+                    resultado: null,
+                    estado: "error",
+                    erro: err.message,
+                    versaoJaAnalisada: analiseJaAceita,
+                    elegibilidadeResolvida: false,
+                });
                 marcarDocumentoProcessando(documentId, false);
-                const chaveErro = `${documentId}:request`;
-                if (!notificacoesErro.current.has(chaveErro)) {
-                    notificacoesErro.current.add(chaveErro);
-                    toast.error(err.message);
-                }
+                notificarUmaVez(`${documentId}:request:${err.message}`, "error", err.message);
                 return;
             }
 
-            salvarResultado(documentId, {
+            const resultadosDaVersao = filtrarResultadosConformidadeTemplateDaVersao(resultados, versaoEnviadaEm, caminhoArquivo);
+            const resultadosParaExibicao = resultadosDaVersao.length > 0 ? resultadosDaVersao : resultados;
+            const resultadoConsultado = selecionarResultadoConformidadeTemplate(resultadosParaExibicao, {
+                preferirResultadoTerminal: novaVersaoEmAnalise,
+            });
+            const resultadoAnterior = resultadosPorDocumentoRef.current[chaveResultado]?.resultado;
+            const manterRelatorioAnterior = resultadoConsultado?.status === "processing" && resultadoAnterior?.status === "completed";
+            const proximoResultado = manterRelatorioAnterior ? resultadoAnterior : resultadoConsultado;
+            const versaoJaAnalisada = versoesComAnaliseAceita.current.has(chaveResultado) || resultadosDaVersao.length > 0;
+
+            salvarResultado(chaveResultado, {
                 resultado: proximoResultado,
                 estado: proximoResultado ? "idle" : "absent",
                 erro: "",
+                versaoJaAnalisada,
+                possuiAnaliseHistorica: resultados.length > 0,
+                elegibilidadeResolvida: true,
             });
 
-            if (!proximoResultado) {
-                if (analisesAceitasAguardandoResultado.current.has(documentId)) {
+            if (!resultadoConsultado) {
+                if (analisesAceitasAguardandoResultado.current.has(chaveResultado)) {
                     marcarDocumentoProcessando(documentId, true);
-                    statusAnteriorPorDocumento.current[documentId] = "processing";
-                    salvarResultado(documentId, {
-                        resultado: {
+                    statusAnteriorPorDocumento.current[chaveResultado] = "processing";
+                    salvarResultado(chaveResultado, {
+                        resultado: resultadoAnterior?.status === "completed" ? resultadoAnterior : {
                             doc_id: documentId,
                             status: "processing",
                             updated_at: new Date().toISOString(),
@@ -423,43 +500,44 @@ export default function ConformidadeTemplateWorkspace() {
                         },
                         estado: "idle",
                         erro: "",
+                        versaoJaAnalisada: true,
+                        possuiAnaliseHistorica: true,
+                        elegibilidadeResolvida: true,
                     });
                     timer = window.setTimeout(() => void carregarResultado(), intervaloResultadoConformidadeMs);
                     return;
                 }
-                statusAnteriorPorDocumento.current[documentId] = "absent";
+                statusAnteriorPorDocumento.current[chaveResultado] = "absent";
                 marcarDocumentoProcessando(documentId, false);
                 return;
             }
 
-            const statusAnterior = statusAnteriorPorDocumento.current[documentId];
-            statusAnteriorPorDocumento.current[documentId] = proximoResultado.status;
+            const statusAnterior = statusAnteriorPorDocumento.current[chaveResultado];
+            statusAnteriorPorDocumento.current[chaveResultado] = resultadoConsultado.status;
+            const analiseIniciadaNestaSessao = analisesAceitasAguardandoResultado.current.has(chaveResultado);
 
-            if (proximoResultado.status === "processing") {
-                analisesAceitasAguardandoResultado.current.add(documentId);
+            if (resultadoConsultado.status === "processing") {
+                timer = window.setTimeout(() => void carregarResultado(), intervaloResultadoConformidadeMs);
                 marcarDocumentoProcessando(documentId, true);
             } else {
-                analisesAceitasAguardandoResultado.current.delete(documentId);
+                analisesAceitasAguardandoResultado.current.delete(chaveResultado);
                 marcarDocumentoProcessando(documentId, false);
             }
 
-            if (proximoResultado.status === "completed" && statusAnterior === "processing") {
-                if (!notificacoesConclusao.current.has(documentId)) {
-                    notificacoesConclusao.current.add(documentId);
-                    toast.success("A análise de conformidade com template foi concluída.");
-                }
+            if (resultadoConsultado.status === "completed" && (statusAnterior === "processing" || analiseIniciadaNestaSessao)) {
+                notificarUmaVez(
+                    `${documentId}:completed:${resultadoConsultado.updated_at}`,
+                    "success",
+                    "A análise de conformidade com template foi concluída."
+                );
             }
 
-            if (proximoResultado.status === "error") {
-                const chaveErro = `${documentId}:backend:${proximoResultado.error ?? "sem-detalhe"}`;
-                if (!notificacoesErro.current.has(chaveErro)) {
-                    notificacoesErro.current.add(chaveErro);
-                    toast.error(proximoResultado.error ?? "A análise de conformidade com template falhou.");
-                }
-            }
-
-            if (proximoResultado?.status === "processing") {
-                timer = window.setTimeout(() => void carregarResultado(), intervaloResultadoConformidadeMs);
+            if (resultadoConsultado.status === "error") {
+                notificarUmaVez(
+                    `${documentId}:backend:${resultadoConsultado.updated_at}:${resultadoConsultado.error ?? "sem-detalhe"}`,
+                    "error",
+                    resultadoConsultado.error ?? "A análise de conformidade com template falhou."
+                );
             }
         }
 
@@ -468,10 +546,14 @@ export default function ConformidadeTemplateWorkspace() {
             cancelado = true;
             if (timer) window.clearTimeout(timer);
         };
-    }, [documentoSelecionado, marcarDocumentoProcessando, salvarResultado, versaoConsulta]);
+    }, [documentoSelecionado, marcarDocumentoProcessando, notificarUmaVez, salvarResultado, versaoConsulta]);
 
     async function iniciarAnaliseTemplate() {
-        if (!documentoSelecionado?.documentId || !documentoSelecionado.filePath || documentoSelecionado.novaVersaoEmAnalise || !templateAtivo) return;
+        if (!documentoSelecionado?.documentId || !documentoSelecionado.filePath || documentoSelecionado.novaVersaoEmAnalise || iniciandoAnalise || !templateAtivo) return;
+        const documentId = documentoSelecionado.documentId;
+        const chaveResultado = chaveResultadoDocumento(documentoSelecionado);
+        const estadoAtual = resultadosPorDocumentoRef.current[chaveResultado];
+        if (!estadoAtual?.elegibilidadeResolvida || estadoAtual.versaoJaAnalisada) return;
 
         setIniciandoAnalise(true);
         try {
@@ -482,12 +564,13 @@ export default function ConformidadeTemplateWorkspace() {
             const arquivo = new File([arquivoPdf], documentoSelecionado.fileName || "documento.pdf", {
                 type: arquivoPdf.type || "application/pdf",
             });
-            const [aceite, err] = await enviarConformidadeTemplate(documentoSelecionado.documentId, arquivo, templateAtivo.id);
+            const [aceite, err] = await enviarConformidadeTemplate(documentId, arquivo, templateAtivo.id);
             if (err) throw err;
             if (!aceite) throw new Error("A API não confirmou o início da análise de conformidade.");
 
-            salvarResultado(documentoSelecionado.documentId, {
-                resultado: {
+            const resultadoAnterior = resultadosPorDocumentoRef.current[chaveResultado]?.resultado;
+            salvarResultado(chaveResultado, {
+                resultado: aceite.status === "processing" && resultadoAnterior?.status === "completed" ? resultadoAnterior : {
                     doc_id: aceite.doc_id,
                     status: aceite.status,
                     updated_at: new Date().toISOString(),
@@ -496,29 +579,34 @@ export default function ConformidadeTemplateWorkspace() {
                 },
                 estado: "idle",
                 erro: "",
+                versaoJaAnalisada: true,
+                possuiAnaliseHistorica: true,
+                elegibilidadeResolvida: true,
             });
-            statusAnteriorPorDocumento.current[documentoSelecionado.documentId] = aceite.status;
+            statusAnteriorPorDocumento.current[chaveResultado] = aceite.status;
+            versoesComAnaliseAceita.current.add(chaveResultado);
             if (aceite.status === "processing") {
-                analisesAceitasAguardandoResultado.current.add(documentoSelecionado.documentId);
-                marcarDocumentoProcessando(documentoSelecionado.documentId, true);
+                analisesAceitasAguardandoResultado.current.add(chaveResultado);
+                marcarDocumentoProcessando(documentId, true);
             } else {
-                analisesAceitasAguardandoResultado.current.delete(documentoSelecionado.documentId);
-                marcarDocumentoProcessando(documentoSelecionado.documentId, false);
+                analisesAceitasAguardandoResultado.current.delete(chaveResultado);
+                marcarDocumentoProcessando(documentId, false);
             }
-            notificacoesErro.current.forEach((chave) => {
-                if (chave.startsWith(`${documentoSelecionado.documentId}:`)) notificacoesErro.current.delete(chave);
-            });
-            notificacoesConclusao.current.delete(documentoSelecionado.documentId);
+            if (aceite.status === "completed") {
+                notificarUmaVez(`${documentId}:completed:accepted`, "success", "A análise de conformidade com template foi concluída.");
+            }
             setVersaoConsulta((atual) => atual + 1);
         } catch (error) {
             const mensagem = error instanceof Error ? error.message : "Não foi possível iniciar a análise de conformidade.";
-            salvarResultado(documentoSelecionado.documentId, { resultado: null, estado: "error", erro: mensagem });
-            marcarDocumentoProcessando(documentoSelecionado.documentId, false);
-            const chaveErro = `${documentoSelecionado.documentId}:start:${mensagem}`;
-            if (!notificacoesErro.current.has(chaveErro)) {
-                notificacoesErro.current.add(chaveErro);
-                toast.error(mensagem);
-            }
+            salvarResultado(chaveResultado, {
+                resultado: null,
+                estado: "error",
+                erro: mensagem,
+                versaoJaAnalisada: false,
+                elegibilidadeResolvida: true,
+            });
+            marcarDocumentoProcessando(documentId, false);
+            notificarUmaVez(`${documentId}:start:${mensagem}`, "error", mensagem);
         } finally {
             setIniciandoAnalise(false);
         }
@@ -544,14 +632,21 @@ export default function ConformidadeTemplateWorkspace() {
     }
 
     const estadoResultadoVisivel = documentoSelecionado?.documentId
-        ? resultadosPorDocumento[documentoSelecionado.documentId]
+        ? resultadosPorDocumento[chaveResultadoDocumento(documentoSelecionado)]
         : undefined;
     const resultadoVisivel = estadoResultadoVisivel?.resultado ?? null;
     const statusResultadoVisivel = documentoSelecionado
-        ? estadoResultadoVisivel?.estado ?? "loading"
+        ? estadoResultadoVisivel?.estado === "pending" ? "loading" : estadoResultadoVisivel?.estado ?? "loading"
         : "idle";
     const erroResultadoVisivel = estadoResultadoVisivel?.erro ?? "";
-    const analiseProcessando = resultadoVisivel?.status === "processing";
+    const analiseProcessando = Boolean(documentoSelecionado?.documentId && documentosProcessando.has(documentoSelecionado.documentId)) || resultadoVisivel?.status === "processing";
+    const versaoJaAnalisada = Boolean(estadoResultadoVisivel?.versaoJaAnalisada);
+    const elegibilidadeResolvida = Boolean(estadoResultadoVisivel?.elegibilidadeResolvida);
+    const orientacaoVersao = documentoSelecionado?.novaVersaoEmAnalise
+        ? "Uma nova versão está sendo analisada em Documentos. O último relatório permanece visível como referência até ela ficar pronta para a análise com template."
+        : versaoJaAnalisada
+            ? "Esta versão já possui uma análise com template. Envie uma nova versão em Documentos para habilitar outra análise."
+            : null;
     const relatorio = resultadoVisivel?.status === "completed" ? normalizarRelatorio(resultadoVisivel.report) : null;
     const semDocumentos = !carregandoDocumentos && !erroDocumentos && documentos.length === 0;
 
@@ -593,6 +688,7 @@ export default function ConformidadeTemplateWorkspace() {
                                 {grupo.documentos.map((documento) => (
                                     (() => {
                                         const documentoProcessando = Boolean(documento.documentId && documentosProcessando.has(documento.documentId));
+                                        const documentoAnalisado = !documentoProcessando && Boolean(resultadosPorDocumento[chaveResultadoDocumento(documento)]?.possuiAnaliseHistorica);
                                         const documentoSelecionado = documento.id === alvoSelecionadoId;
 
                                         return <button
@@ -620,9 +716,10 @@ export default function ConformidadeTemplateWorkspace() {
                                         <span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm">
                                             {documento.fileName ?? "Sem PDF enviado"}
                                         </span>
-                                        {documento.uploadedAt ? <small>{formatarData(documento.uploadedAt)}</small> : null}
+                                            {documento.uploadedAt ? <small>{formatarData(documento.uploadedAt)}</small> : null}
                                             {documento.novaVersaoEmAnalise ? <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-line bg-panel px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-muted"><Loader2 className="animate-spin motion-reduce:animate-none" size={12} />Nova versão em análise</span> : null}
                                             {documentoProcessando ? <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-brand/40 bg-panel px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-ink"><Loader2 className="animate-spin motion-reduce:animate-none" size={12} />Em análise</span> : null}
+                                            {documentoAnalisado ? <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-brand/40 bg-subtle-hover px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-ink"><FileCheck2 size={12} />Analisado</span> : null}
                                         </button>;
                                     })()
                                 ))}
@@ -635,38 +732,40 @@ export default function ConformidadeTemplateWorkspace() {
                             <Estado titulo="Selecione um documento para iniciar a conformidade com template." icone={<FileCheck2 size={32} />} />
                         ) : null}
                         {documentoSelecionado ? (
-                            <div className="grid gap-3 rounded-lg border border-line bg-input-bg p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
-                                <label className="grid gap-2 text-sm font-semibold text-ink">
-                                    Template de comparação
-                                    <select
-                                        className="h-11 rounded-lg border border-line bg-panel px-3 text-sm font-normal text-ink outline-none transition focus:border-brand"
-                                        value={templateAtivo?.id ?? ""}
-                                        onChange={(event) => setTemplateSelecionado(event.target.value)}
-                                        disabled={iniciandoAnalise || templates.length === 0}
+                            <div className="grid gap-3 rounded-lg border border-line bg-input-bg p-4">
+                                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
+                                    <label className="grid gap-2 text-sm font-semibold text-ink">
+                                        Template de comparação
+                                        <select
+                                            className="h-11 rounded-lg border border-line bg-panel px-3 text-sm font-normal text-ink outline-none transition focus:border-brand"
+                                            value={templateAtivo?.id ?? ""}
+                                            onChange={(event) => setTemplateSelecionado(event.target.value)}
+                                            disabled={iniciandoAnalise || templates.length === 0}
+                                        >
+                                            {templates.length === 0 ? <option value="">Nenhum template disponível</option> : null}
+                                            {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+                                        </select>
+                                    </label>
+                                    <button
+                                        className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto"
+                                        type="button"
+                                        disabled={iniciandoAnalise || analiseProcessando || documentoSelecionado.novaVersaoEmAnalise || versaoJaAnalisada || !elegibilidadeResolvida || !documentoSelecionado.documentId || !documentoSelecionado.filePath || !templateAtivo}
+                                        onClick={() => void iniciarAnaliseTemplate()}
                                     >
-                                        {templates.length === 0 ? <option value="">Nenhum template disponível</option> : null}
-                                        {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
-                                    </select>
-                                    {documentoSelecionado.novaVersaoEmAnalise ? <span className="text-xs font-normal leading-5 text-muted">Uma nova versão está sendo analisada em Documentos. A versão anterior permanece visível até ela ficar pronta.</span> : null}
-                                </label>
-                                <button
-                                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto"
-                                    type="button"
-                                    disabled={iniciandoAnalise || analiseProcessando || documentoSelecionado.novaVersaoEmAnalise || !documentoSelecionado.documentId || !documentoSelecionado.filePath || !templateAtivo}
-                                    onClick={() => void iniciarAnaliseTemplate()}
-                                >
-                                    {iniciandoAnalise ? <Loader2 className="animate-spin" size={18} /> : <FileCheck2 size={18} />}
-                                    {iniciandoAnalise ? "Iniciando análise..." : analiseProcessando ? "Análise em andamento" : documentoSelecionado.novaVersaoEmAnalise ? "Nova versão em análise" : "Iniciar análise"}
-                                </button>
-                                <button
-                                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-4 font-display text-sm font-semibold text-ink transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
-                                    type="button"
-                                    disabled={!documentoSelecionado.documentId}
-                                    onClick={() => void abrirHistorico()}
-                                >
-                                    <History size={18} />
-                                    Histórico
-                                </button>
+                                        {iniciandoAnalise ? <Loader2 className="animate-spin" size={18} /> : <FileCheck2 size={18} />}
+                                        {iniciandoAnalise ? "Iniciando análise..." : analiseProcessando ? "Análise em andamento" : documentoSelecionado.novaVersaoEmAnalise ? "Nova versão em análise" : versaoJaAnalisada ? "Análise já realizada" : "Iniciar análise"}
+                                    </button>
+                                    <button
+                                        className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-4 font-display text-sm font-semibold text-ink transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
+                                        type="button"
+                                        disabled={!documentoSelecionado.documentId}
+                                        onClick={() => void abrirHistorico()}
+                                    >
+                                        <History size={18} />
+                                        Histórico
+                                    </button>
+                                </div>
+                                {orientacaoVersao ? <p className="text-xs leading-5 text-muted">{orientacaoVersao}</p> : null}
                             </div>
                         ) : null}
                         {documentoSelecionado && (!documentoSelecionado.documentId || !documentoSelecionado.filePath) ? (
@@ -700,7 +799,14 @@ export default function ConformidadeTemplateWorkspace() {
                                                 {relatorio.metadados.map((metadado) => (
                                                     <div className="min-w-0" key={metadado.rotulo}>
                                                         <dt className="text-xs font-bold uppercase tracking-wide text-muted">{metadado.rotulo}</dt>
-                                                        <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-ink" title={metadado.valor}>{metadado.valor}</dd>
+                                                        {metadado.chave === "article_file" || metadado.chave === "template_file" ? (
+                                                            <dd className="mt-1">
+                                                                <span aria-label={`${metadado.rotulo}: ${nomeArquivoSeguro(metadado.valor)}`} className="inline-flex max-w-full items-center gap-2 rounded-md border border-line bg-panel px-2.5 py-1.5 text-sm text-ink">
+                                                                    <FileText aria-hidden="true" className="shrink-0 text-accent" size={16} />
+                                                                    <span className="overflow-hidden text-ellipsis whitespace-nowrap">{nomeArquivoSeguro(metadado.valor)}</span>
+                                                                </span>
+                                                            </dd>
+                                                        ) : <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-ink" title={metadado.valor}>{metadado.valor}</dd>}
                                                     </div>
                                                 ))}
                                             </dl>
@@ -763,17 +869,25 @@ export default function ConformidadeTemplateWorkspace() {
                             ) : (
                                 <ol className="grid gap-3">
                                     {historico.map((resultado) => (
-                                        <li key={resultado.id} className="grid gap-3 rounded-lg border border-line bg-input-bg p-4">
+                                        (() => {
+                                            const emVisualizacao = resultado.id === resultadoVisivel?.id
+                                                || (!resultadoVisivel?.id && resultado.updated_at === resultadoVisivel?.updated_at && resultado.status === resultadoVisivel.status);
+
+                                            return <li key={resultado.id} className={`grid gap-3 rounded-lg border p-4 ${emVisualizacao ? "border-brand bg-subtle-hover shadow-[0_0_0_1px_var(--brand)]" : "border-line bg-input-bg"}`}>
                                             <div className="flex flex-wrap items-center justify-between gap-2">
                                                 <strong className="font-display text-base text-ink">Análise {resultado.id.slice(0, 8)}</strong>
-                                                <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${classeStatusHistorico(resultado.status)}`}>{rotuloStatusHistorico(resultado.status)}</span>
+                                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                                    {emVisualizacao ? <span className="inline-flex items-center gap-1 rounded-full border border-brand/40 bg-panel px-2.5 py-1 text-xs font-bold text-ink"><Eye size={13} />Em visualização</span> : null}
+                                                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${classeStatusHistorico(resultado.status)}`}>{rotuloStatusHistorico(resultado.status)}</span>
+                                                </div>
                                             </div>
                                             <dl className="grid gap-2 text-sm sm:grid-cols-2">
                                                 <div><dt className="text-xs font-bold uppercase tracking-wide text-muted">Criada em</dt><dd className="mt-1 text-ink">{formatarData(resultado.created_at)}</dd></div>
                                                 <div><dt className="text-xs font-bold uppercase tracking-wide text-muted">Atualizada em</dt><dd className="mt-1 text-ink">{formatarData(resultado.updated_at)}</dd></div>
                                             </dl>
                                             {resultado.error ? <p className="rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent">{resultado.error}</p> : null}
-                                        </li>
+                                            </li>;
+                                        })()
                                     ))}
                                 </ol>
                             )}

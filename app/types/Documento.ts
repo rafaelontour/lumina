@@ -29,6 +29,14 @@ export type DocumentoOrientando = {
     updated_at?: string | null;
     is_archived: boolean;
     processing_status?: string | null;
+    history?: HistoricoDocumentoOrientando[];
+};
+
+export type HistoricoDocumentoOrientando = {
+    id: string;
+    status?: string | null;
+    created_at: string;
+    updated_at?: string | null;
 };
 
 export type RespostaDocumentosOrientando = {
