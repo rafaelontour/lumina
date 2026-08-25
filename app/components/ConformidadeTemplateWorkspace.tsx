@@ -471,7 +471,7 @@ export default function ConformidadeTemplateWorkspace() {
     }, [documentoSelecionado, marcarDocumentoProcessando, salvarResultado, versaoConsulta]);
 
     async function iniciarAnaliseTemplate() {
-        if (!documentoSelecionado?.documentId || !documentoSelecionado.filePath || !templateAtivo) return;
+        if (!documentoSelecionado?.documentId || !documentoSelecionado.filePath || documentoSelecionado.novaVersaoEmAnalise || !templateAtivo) return;
 
         setIniciandoAnalise(true);
         try {
@@ -621,6 +621,7 @@ export default function ConformidadeTemplateWorkspace() {
                                             {documento.fileName ?? "Sem PDF enviado"}
                                         </span>
                                         {documento.uploadedAt ? <small>{formatarData(documento.uploadedAt)}</small> : null}
+                                            {documento.novaVersaoEmAnalise ? <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-line bg-panel px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-muted"><Loader2 className="animate-spin motion-reduce:animate-none" size={12} />Nova versão em análise</span> : null}
                                             {documentoProcessando ? <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-brand/40 bg-panel px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-ink"><Loader2 className="animate-spin motion-reduce:animate-none" size={12} />Em análise</span> : null}
                                         </button>;
                                     })()
@@ -646,15 +647,16 @@ export default function ConformidadeTemplateWorkspace() {
                                         {templates.length === 0 ? <option value="">Nenhum template disponível</option> : null}
                                         {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                                     </select>
+                                    {documentoSelecionado.novaVersaoEmAnalise ? <span className="text-xs font-normal leading-5 text-muted">Uma nova versão está sendo analisada em Documentos. A versão anterior permanece visível até ela ficar pronta.</span> : null}
                                 </label>
                                 <button
                                     className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto"
                                     type="button"
-                                    disabled={iniciandoAnalise || analiseProcessando || !documentoSelecionado.documentId || !documentoSelecionado.filePath || !templateAtivo}
+                                    disabled={iniciandoAnalise || analiseProcessando || documentoSelecionado.novaVersaoEmAnalise || !documentoSelecionado.documentId || !documentoSelecionado.filePath || !templateAtivo}
                                     onClick={() => void iniciarAnaliseTemplate()}
                                 >
                                     {iniciandoAnalise ? <Loader2 className="animate-spin" size={18} /> : <FileCheck2 size={18} />}
-                                    {iniciandoAnalise ? "Iniciando análise..." : analiseProcessando ? "Análise em andamento" : "Iniciar análise"}
+                                    {iniciandoAnalise ? "Iniciando análise..." : analiseProcessando ? "Análise em andamento" : documentoSelecionado.novaVersaoEmAnalise ? "Nova versão em análise" : "Iniciar análise"}
                                 </button>
                                 <button
                                     className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-4 font-display text-sm font-semibold text-ink transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
@@ -679,7 +681,7 @@ export default function ConformidadeTemplateWorkspace() {
                             <Estado titulo="Consultando a conformidade com template..." icone={<Loader2 className="animate-spin" size={28} />} />
                         ) : null}
                         {documentoSelecionado && documentoSelecionado.filePath && statusResultadoVisivel === "absent" ? (
-                            <Estado titulo="Nenhuma análise de template foi iniciada para este documento." descricao="Escolha um template e use “Iniciar análise”." icone={<FileWarning size={28} />} />
+                            <Estado titulo="Nenhuma análise de template foi iniciada para este documento." descricao={documentoSelecionado.novaVersaoEmAnalise ? "Aguarde a análise da nova versão enviada em Documentos para iniciar outra verificação." : "Escolha um template e use “Iniciar análise”."} icone={<FileWarning size={28} />} />
                         ) : null}
                         {documentoSelecionado && statusResultadoVisivel === "error" ? <Estado titulo={erroResultadoVisivel} icone={<AlertTriangle size={28} />} erro /> : null}
                         {documentoSelecionado && resultadoVisivel?.status === "processing" ? (
@@ -740,7 +742,7 @@ export default function ConformidadeTemplateWorkspace() {
                 </div>
             )}
             {historicoAberto ? (
-                <div className="fixed inset-0 z-50 grid place-items-center bg-preto/45 p-5" role="presentation">
+                <div className="fixed inset-0 z-50 grid place-items-center bg-preto/45 p-5 backdrop-blur-sm" role="presentation">
                     <section className="grid max-h-[min(42rem,calc(100dvh-2.5rem))] w-full max-w-2xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-xl border border-line bg-panel shadow-xl" role="dialog" aria-modal="true" aria-labelledby="titulo-historico-conformidade">
                         <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
                             <div>

@@ -644,7 +644,7 @@ export default function DocumentosPage() {
             </header>
 
             {criandoDocumento ? (
-                <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4" role="presentation">
+                <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4 backdrop-blur-sm" role="presentation">
                     <div
                         className="grid max-h-[88vh] w-full max-w-3xl gap-5 overflow-auto rounded-lg border border-line bg-panel p-5 text-ink shadow-[0_22px_70px_-22px_rgba(0,0,0,0.45)]"
                         role="dialog"
@@ -749,7 +749,7 @@ export default function DocumentosPage() {
 
             {documentoParaApagar ? (
                 <div
-                    className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4"
+                    className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
                     role="presentation"
                     onMouseDown={(event) => {
                         if (event.target === event.currentTarget && !apagandoDocumento) {

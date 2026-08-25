@@ -394,7 +394,7 @@ export default function GestaoTemplatesWorkspace() {
             {erro && templates.length > 0 ? <p className="rounded-lg border border-laranja/40 bg-laranja/10 px-3 py-2 text-sm text-laranja">{erro} Os templates já exibidos foram mantidos.</p> : null}
 
             {templateParaExcluir ? (
-                <div className="fixed inset-0 z-50 grid place-items-center bg-preto/45 p-5" role="presentation">
+                <div className="fixed inset-0 z-50 grid place-items-center bg-preto/45 p-5 backdrop-blur-sm" role="presentation">
                     <section className="w-full max-w-md rounded-xl border border-line bg-panel p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="titulo-excluir-template">
                         <h2 id="titulo-excluir-template" className="font-display text-xl font-bold">Excluir template?</h2>
                         <p className="mt-2 text-sm leading-6 text-muted">O template “{templateParaExcluir.name}” será removido do catálogo e deixará de estar disponível para novas análises.</p>

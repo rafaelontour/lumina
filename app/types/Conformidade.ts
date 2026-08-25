@@ -108,4 +108,5 @@ export type AlvoDocumentoConformidade = {
     filePath?: string;
     fileName?: string;
     uploadedAt?: string;
+    novaVersaoEmAnalise?: boolean;
 };

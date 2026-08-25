@@ -109,6 +109,40 @@ function obterResultadoMaisRecente(resultados: ResultadoProcessamentoConformidad
     }, null);
 }
 
+export function filtrarResultadosConformidadeAbntDaVersao(
+    resultados: ResultadoProcessamentoConformidade[],
+    versaoEnviadaEm?: string
+) {
+    const horarioVersao = versaoEnviadaEm ? Date.parse(versaoEnviadaEm) : Number.NaN;
+    if (Number.isNaN(horarioVersao)) return resultados;
+
+    return resultados.filter((resultado) => {
+        const horarioResultado = Date.parse(resultado.created_at);
+        return Number.isNaN(horarioResultado) || horarioResultado >= horarioVersao;
+    });
+}
+
+export function selecionarResultadoConformidadeAbnt(
+    resultados: ResultadoProcessamentoConformidade[],
+    opcoes?: { priorizarProcessamento?: boolean }
+): ResultadoConformidadeAbnt | null {
+    if (resultados.length === 0) return null;
+
+    const resultadosTerminais = resultados.filter((resultado) => resultado.status !== "processing");
+    const resultado = opcoes?.priorizarProcessamento
+        ? obterResultadoMaisRecente(resultados)
+        : obterResultadoMaisRecente(resultadosTerminais) ?? obterResultadoMaisRecente(resultados);
+    if (!resultado?.doc_id || !resultado.status) return null;
+
+    return {
+        doc_id: resultado.doc_id,
+        status: resultado.status,
+        updated_at: resultado.updated_at,
+        report: resultado.report && typeof resultado.report === "object" ? resultado.report : null,
+        error: typeof resultado.error === "string" ? resultado.error : null,
+    };
+}
+
 export async function obterResultadoConformidadeTemplate(
     docId: string
 ): Promise<[ResultadoConformidadeTemplate | null, Error | null]> {
@@ -163,31 +197,16 @@ export async function listarHistoricoConformidadeTemplate(
 
 export async function obterResultadoConformidadeAbnt(
     docId: string,
-    opcoes?: { priorizarProcessamento?: boolean }
+    opcoes?: { priorizarProcessamento?: boolean; versaoEnviadaEm?: string }
 ): Promise<[ResultadoConformidadeAbnt | null, Error | null]> {
     const [resultados, err] = await listarHistoricoConformidadeAbnt(docId);
     if (err) return [null, err];
 
-    if (resultados.length === 0) return [null, null];
-
-    const resultadosTerminais = resultados.filter((resultado) => resultado.status !== "processing");
-    const resultado = opcoes?.priorizarProcessamento
-        ? obterResultadoMaisRecente(resultados)
-        : obterResultadoMaisRecente(resultadosTerminais) ?? obterResultadoMaisRecente(resultados);
-    if (!resultado?.doc_id || !resultado.status) {
-        return [null, new Error("A API retornou um resultado de conformidade ABNT inválido.")];
-    }
-
-    return [
-        {
-            doc_id: resultado.doc_id,
-            status: resultado.status,
-            updated_at: resultado.updated_at,
-            report: resultado.report && typeof resultado.report === "object" ? resultado.report : null,
-            error: typeof resultado.error === "string" ? resultado.error : null,
-        },
-        null,
-    ];
+    const resultado = selecionarResultadoConformidadeAbnt(
+        filtrarResultadosConformidadeAbntDaVersao(resultados, opcoes?.versaoEnviadaEm),
+        opcoes
+    );
+    return [resultado, null];
 }
 
 export async function listarHistoricoConformidadeAbnt(
@@ -223,7 +242,11 @@ export async function listarDocumentosConformidade(): Promise<[AlvoDocumentoConf
     return [
         documentos.flatMap((documento) =>
             documento.components.flatMap((componente) => {
-                const versao = componente.versions[0];
+                const versaoAtual = componente.versions[0];
+                const novaVersaoEmAnalise = versaoAtual?.analysisStatus === "pending";
+                const versao = novaVersaoEmAnalise
+                    ? componente.ultimaVersaoPronta ?? versaoAtual
+                    : versaoAtual;
                 const documentId = componente.projectDocumentId ?? componente.key;
 
                 return [{
@@ -238,6 +261,7 @@ export async function listarDocumentosConformidade(): Promise<[AlvoDocumentoConf
                     filePath: versao?.filePath,
                     fileName: versao?.fileName,
                     uploadedAt: versao?.uploadedAt,
+                    novaVersaoEmAnalise,
                 }];
             })
         ),

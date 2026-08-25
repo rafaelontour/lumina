@@ -742,7 +742,7 @@ export default function TipificacoesPage() {
 
             {podeGerenciar && criacaoAberta ? (
                 <div
-                    className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4"
+                    className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
                     role="presentation"
                     onMouseDown={(event) => {
                         if (event.target === event.currentTarget) fecharCriacao();
@@ -923,7 +923,7 @@ export default function TipificacoesPage() {
 
             {podeGerenciar && formularioContextual ? (
                 <div
-                    className="fixed inset-0 z-[60] grid place-items-center bg-black/45 p-4"
+                    className="fixed inset-0 z-[60] grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
                     role="presentation"
                     onMouseDown={(event) => {
                         if (event.target === event.currentTarget) fecharFormularioContextual();
@@ -1050,7 +1050,7 @@ export default function TipificacoesPage() {
 
             {editorCompletoObsoleto && rascunhoEdicao && tipificacaoOriginal ? (
                 <div
-                    className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4"
+                    className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
                     role="presentation"
                     onMouseDown={(event) => {
                         if (event.target === event.currentTarget && !remocaoPendente) fecharEdicao();
@@ -1251,7 +1251,7 @@ export default function TipificacoesPage() {
 
             {taxonomiaSelecionada ? (
                 <div
-                    className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4"
+                    className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
                     role="presentation"
                     onMouseDown={(event) => {
                         if (event.target === event.currentTarget) {
@@ -1364,7 +1364,7 @@ function ConfirmacaoDialogo({
     onConfirmar: () => void;
 }) {
     return (
-        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/55 p-4" role="presentation">
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/55 p-4 backdrop-blur-sm" role="presentation">
             <div
                 className="w-full max-w-md rounded-lg border border-line bg-panel p-5 text-ink shadow-[0_22px_70px_-22px_rgba(0,0,0,0.45)]"
                 role="dialog"

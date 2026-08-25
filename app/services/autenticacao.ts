@@ -1,7 +1,7 @@
 import axios, { type AxiosError } from "axios";
 import { tryit } from "radash";
 
-import type { CredenciaisLogin, UsuarioAutenticado } from "@/app/types/Autenticacao";
+import type { CredenciaisLogin, DadosAtualizacaoPerfil, UsuarioAutenticado } from "@/app/types/Autenticacao";
 
 type ErroApiData = {
     detail?: string | Array<{ msg?: string }>;
@@ -70,6 +70,30 @@ export async function encerrarSessao(): Promise<[true | null, Error | null]> {
     );
 
     return err ? [null, criarErroApi(err, "Não foi possível encerrar a sessão.")] : [true, null];
+}
+
+export async function atualizarPerfilUsuario(dados: DadosAtualizacaoPerfil): Promise<[UsuarioAutenticado | null, Error | null]> {
+    const [response, err] = await executarRequisicao(() =>
+        axios.put<UsuarioAutenticado>(montarUrlApi("/user"), dados, {
+            withCredentials: true,
+        })
+    );
+
+    if (err || !response?.data) return [null, criarErroApi(err, "Não foi possível atualizar o perfil.")];
+    return [response.data, null];
+}
+
+export async function enviarFotoPerfilUsuario(userId: string, arquivo: File): Promise<[true | null, Error | null]> {
+    const dados = new FormData();
+    dados.append("file", arquivo);
+
+    const [, err] = await executarRequisicao(() =>
+        axios.post(montarUrlApi(`/user/${encodeURIComponent(userId)}/icon`), dados, {
+            withCredentials: true,
+        })
+    );
+
+    return err ? [null, criarErroApi(err, "Não foi possível atualizar a foto de perfil.")] : [true, null];
 }
 
 export function criarErroApi(error: unknown, fallback: string) {

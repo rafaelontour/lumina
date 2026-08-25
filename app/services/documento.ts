@@ -521,7 +521,25 @@ export async function carregarWorkspaceDocumentos(): Promise<[DocumentoProjeto[]
 
                         const latestRelease = ultimaRelease(releases);
                         const releaseAnalisado = selecionarReleaseAnalisado(releases, latestRelease?.id);
-                        const analysisReady = Boolean(releaseAnalisado);
+                        const analysisReady = releasePossuiAnalise(latestRelease);
+
+                        const criarVersao = (release: ReleaseExterno, pronta: boolean) => ({
+                            id: release.id,
+                            documentId: backendDocument!.id,
+                            externalDocumentId: backendDocument!.id,
+                            externalReleaseId: release.id,
+                            filePath: release.file_path,
+                            analysisStatus: pronta ? "ready" as const : "pending" as const,
+                            analysisCheckedAt: new Date().toISOString(),
+                            fileName: backendDocument!.name || projectDocument.name,
+                            uploadedAt: release.created_at,
+                            pageCount: 0,
+                            feedbackCount: release.check_tree?.length ?? 0,
+                            highCount: 0,
+                            mediumCount: 0,
+                            lowCount: 0,
+                            status: pronta ? "ok" as const : "needs_review" as const,
+                        });
 
                         return {
                             key: projectDocument.id,
@@ -534,26 +552,12 @@ export async function carregarWorkspaceDocumentos(): Promise<[DocumentoProjeto[]
                             description: `Envie o arquivo correspondente à seção ${projectDocument.name}.`,
                             versions:
                                 backendDocument && latestRelease
-                                    ? [
-                                          {
-                                              id: latestRelease.id,
-                                              documentId: backendDocument.id,
-                                              externalDocumentId: backendDocument.id,
-                                              externalReleaseId: latestRelease.id,
-                                              filePath: latestRelease.file_path,
-                                              analysisStatus: analysisReady ? "ready" as const : "pending" as const,
-                                              analysisCheckedAt: new Date().toISOString(),
-                                              fileName: backendDocument.name || projectDocument.name,
-                                              uploadedAt: latestRelease.created_at,
-                                              pageCount: 0,
-                                              feedbackCount: releaseAnalisado?.check_tree?.length ?? 0,
-                                              highCount: 0,
-                                              mediumCount: 0,
-                                              lowCount: 0,
-                                              status: analysisReady ? "ok" as const : "needs_review" as const,
-                                          },
-                                      ]
+                                    ? [criarVersao(latestRelease, analysisReady)]
                                     : [],
+                            ultimaVersaoPronta:
+                                backendDocument && releaseAnalisado && releaseAnalisado.id !== latestRelease?.id
+                                    ? criarVersao(releaseAnalisado, true)
+                                    : undefined,
                         };
                     })
                 );

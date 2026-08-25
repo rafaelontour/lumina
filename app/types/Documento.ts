@@ -189,6 +189,7 @@ export type ComponenteDocumento = {
     groupId?: string;
     iconPath?: string | null;
     versions: VersaoDocumento[];
+    ultimaVersaoPronta?: VersaoDocumento;
 };
 
 export type DocumentoProjeto = {

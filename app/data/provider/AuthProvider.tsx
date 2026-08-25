@@ -20,6 +20,7 @@ type ContextoAutenticacao = {
     erroOnboardingOrientacao: string | null;
     iniciarSessao: (credenciais: CredenciaisLogin) => Promise<Error | null>;
     encerrarSessao: () => Promise<Error | null>;
+    atualizarUsuarioConfirmado: (usuario: UsuarioAutenticado) => void;
     salvarOrientador: (orientadorId: string) => Promise<Error | null>;
     tentarNovamenteOnboardingOrientacao: () => Promise<void>;
 };
@@ -102,6 +103,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null;
     }, []);
 
+    const atualizarUsuarioConfirmado = useCallback((usuarioAtualizado: UsuarioAutenticado) => {
+        setUsuario(usuarioAtualizado);
+    }, []);
+
     const salvarOrientador = useCallback(async (orientadorId: string) => {
         if (!usuario) return new Error("Não foi possível identificar o usuário atual.");
 
@@ -130,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             erroOnboardingOrientacao,
             iniciarSessao,
             encerrarSessao: sair,
+            atualizarUsuarioConfirmado,
             salvarOrientador,
             tentarNovamenteOnboardingOrientacao,
         }),
@@ -140,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             erroOnboardingOrientacao,
             iniciarSessao,
             sair,
+            atualizarUsuarioConfirmado,
             salvarOrientador,
             tentarNovamenteOnboardingOrientacao,
         ]

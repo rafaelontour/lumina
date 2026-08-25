@@ -5,10 +5,28 @@ export type CredenciaisLogin = {
 
 export type NivelAcesso = "DEFAULT" | "ADMIN" | "ANALYST" | "AUDITOR";
 
+export type FotoPerfilUsuario = {
+    id: string;
+    file_path: string;
+    type: string;
+    created_at: string;
+};
+
 export type UsuarioAutenticado = {
     id: string;
     username: string;
     email: string;
     phone_number?: string;
+    access_level?: NivelAcesso;
+    created_at?: string;
+    updated_at?: string | null;
+    icon?: FotoPerfilUsuario | null;
+};
+
+export type DadosAtualizacaoPerfil = {
+    id: string;
+    username: string;
+    email: string;
+    phone_number: string;
     access_level?: NivelAcesso;
 };
