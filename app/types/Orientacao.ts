@@ -37,10 +37,6 @@ export type VinculoOrientacao = {
     status: StatusOrientacao;
 };
 
-export type RespostaUsuarios = {
-    users: UsuarioAutenticado[];
-};
-
 export type RespostaMeusOrientadores = {
     advisors: CartaoOrientador[];
 };

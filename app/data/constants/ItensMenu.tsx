@@ -6,6 +6,7 @@ import {
     Files,
     Home,
     ListTree,
+    UserCog,
     UsersRound,
     type LucideIcon,
 } from "lucide-react";
@@ -45,6 +46,12 @@ export const itensMenu: ItemMenu[] = [
         nome: "Templates",
         href: "/templates",
         icone: Files,
+        apenasAdmin: true,
+    },
+    {
+        nome: "Gerenciar usuários",
+        href: "/usuarios",
+        icone: UserCog,
         apenasAdmin: true,
     },
     {

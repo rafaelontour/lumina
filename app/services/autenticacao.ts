@@ -1,7 +1,12 @@
 import axios, { type AxiosError } from "axios";
 import { tryit } from "radash";
 
-import type { CredenciaisLogin, DadosAtualizacaoPerfil, UsuarioAutenticado } from "@/app/types/Autenticacao";
+import type {
+    CredenciaisLogin,
+    DadosAtualizacaoPerfil,
+    DadosCadastroUsuario,
+    UsuarioAutenticado,
+} from "@/app/types/Autenticacao";
 
 type ErroApiData = {
     detail?: string | Array<{ msg?: string }>;
@@ -62,6 +67,23 @@ export async function iniciarSessao({ username, password }: CredenciaisLogin): P
 
     if (err || !response) return [null, criarErroApi(err, "Não foi possível entrar na plataforma.")];
     return obterUsuarioAutenticado();
+}
+
+export async function cadastrarUsuarioPadrao(
+    dados: Omit<DadosCadastroUsuario, "access_level">
+): Promise<[UsuarioAutenticado | null, Error | null]> {
+    const [response, err] = await executarRequisicao(() =>
+        axios.post<UsuarioAutenticado>(
+            montarUrlApi("/user"),
+            { ...dados, access_level: "DEFAULT" },
+            {
+                headers: { "Content-Type": "application/json" },
+            }
+        )
+    );
+
+    if (err || !response?.data) return [null, criarErroApi(err, "Não foi possível criar sua conta.")];
+    return [response.data, null];
 }
 
 export async function encerrarSessao(): Promise<[true | null, Error | null]> {

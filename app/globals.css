@@ -1,6 +1,22 @@
 @import "tailwindcss";
 @import "react-pdf/dist/Page/TextLayer.css";
 
+@layer components {
+  .campo-cadastro {
+    min-width: 0;
+    flex: 1;
+    background: transparent;
+    font-size: 1.125rem;
+    font-weight: 400;
+    color: var(--ink);
+    outline: none;
+  }
+
+  .campo-cadastro::placeholder {
+    color: var(--muted);
+  }
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {

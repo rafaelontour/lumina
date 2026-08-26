@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, KeyRound, Loader2, UserRound } from "lucide-react";
@@ -178,6 +179,13 @@ export default function LoginPage() {
                             {enviando ? "Entrando…" : "Entrar"}
                         </button>
                     </form>
+
+                    <p className="mt-7 text-center text-base text-muted">
+                        Não tem uma conta?{" "}
+                        <Link className="font-semibold text-brand underline-offset-4 transition hover:underline" href="/cadastro">
+                            Cadastre-se
+                        </Link>
+                    </p>
                 </motion.div>
             </section>
         </main>

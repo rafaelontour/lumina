@@ -1,13 +1,12 @@
 import axios from "axios";
 
-import type { UsuarioAutenticado } from "@/app/types/Autenticacao";
+import type { RespostaUsuarios, UsuarioAutenticado } from "@/app/types/Autenticacao";
 import type { DocumentoOrientando, RespostaDocumentosOrientando } from "@/app/types/Documento";
 import type {
     CartaoOrientador,
     CartaoOrientando,
     RespostaMeusOrientadores,
     RespostaMeusOrientandos,
-    RespostaUsuarios,
     VinculoOrientacao,
 } from "@/app/types/Orientacao";
 import { criarErroApi, executarRequisicao, montarUrlApi } from "./autenticacao";
@@ -31,7 +30,12 @@ export async function listarCandidatosOrientacao(usuarioAtualId: string): Promis
 
     if (err) return [[], err];
     const usuarios = response?.data.users;
-    return [Array.isArray(usuarios) ? usuarios.filter((usuario) => usuario.id !== usuarioAtualId) : [], null];
+    return [
+        Array.isArray(usuarios)
+            ? usuarios.filter((usuario) => usuario.id !== usuarioAtualId && usuario.access_level === "ADMIN")
+            : [],
+        null,
+    ];
 }
 
 export async function listarMeusOrientadoresAtivos(): Promise<[CartaoOrientador[], Error | null]> {

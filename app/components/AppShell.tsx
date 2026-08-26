@@ -36,7 +36,7 @@ function ConteudoAppShell({ children, menuRecolhidoInicial }: Readonly<AppShellP
         salvarOrientador,
         tentarNovamenteOnboardingOrientacao,
     } = useAuth();
-    const rotaPublica = pathname === "/login";
+    const rotaPublica = pathname === "/login" || pathname === "/cadastro";
 
     function alternarMenu() {
         setMenuRecolhido((valorAtual) => {
@@ -95,7 +95,7 @@ function ConteudoAppShell({ children, menuRecolhidoInicial }: Readonly<AppShellP
         );
     }
 
-    if ((pathname === "/orientandos" || pathname === "/documentos/orientandos" || pathname === "/templates") && usuario?.access_level !== "ADMIN") {
+    if ((pathname === "/orientandos" || pathname === "/documentos/orientandos" || pathname === "/templates" || pathname === "/usuarios") && usuario?.access_level !== "ADMIN") {
         return (
             <ComToaster theme={resolvedTheme}>
                 <RedirecionarParaInicio />
