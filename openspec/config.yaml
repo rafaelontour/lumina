@@ -1,0 +1,11 @@
+schema: spec-driven
+
+context: |
+  Lumina is a partially functional Next.js 16 App Router application for AI-assisted scientific document review.
+  The current frontend is TypeScript, React 19, Tailwind CSS 4, next-themes, axios, motion, lucide-react, radash, and zod.
+  The application language is Brazilian Portuguese.
+  The UI is organized around a fixed application shell with header, collapsible sidebar, theme toggle, and feature pages.
+  The frontend talks to an external backend through the internal `/api/backend/*` proxy route, which depends on `API_BASE_URL`.
+  Current backend integration uses cookie-based requests and a development/demo automatic login with fixed credentials when selected requests receive 401 responses.
+  Document project state is currently stored in the browser through IndexedDB with localStorage fallback; uploaded PDFs and analysis data are referenced by backend document/release ids rather than stored in IndexedDB.
+  OpenSpec was initialized after the application already had partial functionality; the current specs document the baseline as of 2026-07-29 rather than a new implementation plan.
