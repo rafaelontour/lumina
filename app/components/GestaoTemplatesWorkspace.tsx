@@ -253,7 +253,7 @@ export default function GestaoTemplatesWorkspace() {
                             <Upload size={15} />
                             Escolher arquivo
                         </button>
-                        <span className="truncate text-xs font-normal text-muted" title={novoArquivo?.name}>
+                        <span className="min-w-0 flex-1 truncate text-xs font-normal text-muted" title={novoArquivo?.name}>
                             {novoArquivo?.name ?? "Nenhum PDF selecionado"}
                         </span>
                     </div>
@@ -278,7 +278,7 @@ export default function GestaoTemplatesWorkspace() {
                 >
                     <div className="lg:col-span-4">
                         <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">Editando template</p>
-                        <p className="mt-1 text-sm text-muted">{templateEditando.original_filename}</p>
+                        <p className="mt-1 truncate text-sm text-muted" title={templateEditando.original_filename}>{templateEditando.original_filename}</p>
                     </div>
                     <div className="grid gap-2">
                         <label className="grid gap-1.5 text-sm font-semibold">
@@ -335,7 +335,7 @@ export default function GestaoTemplatesWorkspace() {
                                 <Upload size={15} />
                                 Escolher arquivo
                             </button>
-                            <span className="truncate text-xs font-normal text-muted" title={arquivoEdicao?.name}>
+                            <span className="min-w-0 flex-1 truncate text-xs font-normal text-muted" title={arquivoEdicao?.name}>
                                 {arquivoEdicao?.name ?? "Manter PDF atual"}
                             </span>
                         </div>
@@ -373,8 +373,8 @@ export default function GestaoTemplatesWorkspace() {
                             <div className="flex min-w-0 items-start gap-3">
                                 <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-panel-soft text-brand"><FileText size={20} /></span>
                                 <div className="min-w-0">
-                                    <h2 className="truncate font-display text-lg font-bold">{template.name}</h2>
-                                    <p className="mt-1 truncate text-sm text-muted">{template.original_filename}</p>
+                                    <h2 className="truncate font-display text-lg font-bold" title={template.name}>{template.name}</h2>
+                                    <p className="mt-1 truncate text-sm text-muted" title={template.original_filename}>{template.original_filename}</p>
                                     <p className="mt-1 text-xs text-muted">Atualizado: {formatarData(template.updated_at ?? template.created_at)}</p>
                                 </div>
                             </div>

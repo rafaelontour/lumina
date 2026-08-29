@@ -14,5 +14,5 @@
 ## 3. Privacidade e verificação
 
 - [x] 3.1 Verificar que nenhuma senha, token ou estado de autenticação seja persistido em armazenamento acessível pelo navegador durante o cadastro.
-- [ ] 3.2 Validar manualmente a criação de conta com `DEFAULT`, a ausência de opção para permissões elevadas, os erros de validação/duplicidade e o login posterior.
+- [x] 3.2 Validar manualmente a criação de conta com `DEFAULT`, a ausência de opção para permissões elevadas, os erros de validação/duplicidade e o login posterior.
 - [x] 3.3 Executar `pnpm lint`, `pnpm build` e `openspec validate add-standard-user-registration --type change`.

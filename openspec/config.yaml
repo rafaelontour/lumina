@@ -6,6 +6,6 @@ context: |
   The application language is Brazilian Portuguese.
   The UI is organized around a fixed application shell with header, collapsible sidebar, theme toggle, and feature pages.
   The frontend talks to an external backend through the internal `/api/backend/*` proxy route, which depends on `API_BASE_URL`.
-  Current backend integration uses cookie-based requests and a development/demo automatic login with fixed credentials when selected requests receive 401 responses.
-  Document project state is currently stored in the browser through IndexedDB with localStorage fallback; uploaded PDFs and analysis data are referenced by backend document/release ids rather than stored in IndexedDB.
+  Current backend integration uses email-and-password authentication, with the authenticated backend session carried by HttpOnly cookies on requests through the internal proxy.
+  Document project state is restored from backend data; backend document and release ids are the canonical identifiers for uploaded PDFs and analysis data.
   OpenSpec was initialized after the application already had partial functionality; the current specs document the baseline as of 2026-07-29 rather than a new implementation plan.

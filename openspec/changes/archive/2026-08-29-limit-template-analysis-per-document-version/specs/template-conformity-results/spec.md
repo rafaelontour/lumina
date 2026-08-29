@@ -120,7 +120,24 @@ The frontend SHALL obtain the selected PDF's template conformity result from `GE
 
 ### Requirement: Template conformity result history
 
-The route SHALL identify in the history popup the execution whose report is currently displayed in the main workspace.
+The route SHALL provide a “Histórico” action for the selected PDF. When activated, it SHALL obtain the result collection from `GET /templates/{docId}/conformidade` and present every returned execution in a popup, ordered from most recently updated to least recently updated, with its status, creation time, update time, and available error detail. The popup SHALL make clear when no execution exists and SHALL be dismissible without changing the currently displayed result. It SHALL identify in that popup the execution whose report is currently displayed in the main workspace.
+
+#### Scenario: User opens a populated history
+
+- **WHEN** the selected PDF has one or more returned template conformity results and the user activates “Histórico”
+- **THEN** the route presents a popup listing every returned execution in descending update order
+- **AND** keeps the latest result displayed in the main workspace unchanged
+
+#### Scenario: User opens an empty history
+
+- **WHEN** the selected PDF has no returned template conformity result and the user activates “Histórico”
+- **THEN** the popup explains that no analysis has been recorded
+
+#### Scenario: History request fails
+
+- **WHEN** the history request fails
+- **THEN** the popup presents a readable failure state
+- **AND** preserves the currently displayed result and selected PDF
 
 #### Scenario: History identifies the displayed result
 

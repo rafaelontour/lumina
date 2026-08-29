@@ -5,6 +5,6 @@
 
 ## 2. Verificação
 
-- [ ] 2.1 Validar manualmente que contas DEFAULT, ANALYST e AUDITOR não aparecem como orientadores e que contas ADMIN aparecem.
-- [ ] 2.2 Validar que a ausência de administrador mantém o onboarding obrigatório aberto e sem opção de salvar.
+- [x] 2.1 Validar manualmente que contas DEFAULT, ANALYST e AUDITOR não aparecem como orientadores e que contas ADMIN aparecem.
+- [x] 2.2 Validar que a ausência de administrador mantém o onboarding obrigatório aberto e sem opção de salvar.
 - [x] 2.3 Executar `pnpm lint`, `pnpm build` e `openspec validate restrict-advisor-candidates-to-admins --type change`.

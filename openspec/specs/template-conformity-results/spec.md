@@ -30,7 +30,7 @@ The Conformidade Template route SHALL list every workspace component from the ba
 
 ### Requirement: User-initiated template conformity
 
-The Conformidade Template route SHALL load the available template objects from `GET /templates`, present each object's `name` as a selectable label, and start an analysis only after the user selects a target and a template and explicitly activates the start action. The selected template's UUID SHALL be sent as `template_id` to the conformity endpoint.
+The Conformidade Template route SHALL load the available template objects from `GET /templates`, present each object's `name` as a selectable label, and start an analysis only after the user selects a target and a template and explicitly activates the start action. The selected template's UUID SHALL be sent as `template_id` to the conformity endpoint. The route MUST permit at most one template-conformity execution for each uploaded PDF version and MUST enable another execution only after Documentos provides a newer PDF version whose main analysis is ready for that component; the upload itself MUST NOT start template conformity.
 
 #### Scenario: User selects an available template
 
@@ -46,14 +46,47 @@ The Conformidade Template route SHALL load the available template objects from `
 
 #### Scenario: User starts an analysis
 
-- **WHEN** the user selects an uploaded PDF and a template and activates “Iniciar análise”
+- **WHEN** the user selects an uploaded PDF version without a template-conformity execution and a template and activates “Iniciar análise”
 - **THEN** the frontend obtains the stored release PDF without creating another release
 - **AND** sends that PDF and the selected `template_id` to `POST /templates/{docId}/conformidade`
 - **AND** presents the accepted processing state
 
+#### Scenario: Template analysis already exists for the current version
+
+- **WHEN** the selected uploaded PDF version already has a returned template-conformity execution
+- **THEN** the route keeps the start action disabled
+- **AND** explains that another analysis requires a new PDF version in Documentos
+
+#### Scenario: Document list identifies an analyzed version
+
+- **WHEN** an uploaded PDF version already has a returned template-conformity execution
+- **THEN** its item in the document selector displays the “Analisado” badge
+- **AND** the badge uses the same visual treatment as the equivalent ABNT status
+
+#### Scenario: Analyzed badges load with the document list
+
+- **WHEN** the route finishes loading its available document targets
+- **THEN** it obtains the eligibility state for each target before presenting the document list
+- **AND** shows the “Analisado” badge immediately for every version that already has an execution
+- **AND** keeps the report panel inactive until the user selects a target
+
+#### Scenario: A new PDF version becomes ready
+
+- **WHEN** Documentos provides a newer PDF version whose main analysis has completed for a component whose earlier version has a template-conformity execution
+- **THEN** the new version becomes eligible for one template-conformity execution
+- **AND** the earlier version's execution does not keep the start action disabled
+- **AND** no template-conformity execution starts until the user activates “Iniciar análise”
+
+#### Scenario: Pending main analysis completes while the workspace is open
+
+- **WHEN** the selected target is marked as having a new version under main analysis
+- **THEN** the route refreshes its document targets while that state persists
+- **AND** removes the “Nova versão em análise” badge when the main analysis completes
+- **AND** recalculates the start-action eligibility without requiring a page reload
+
 #### Scenario: User has not started an analysis
 
-- **WHEN** the selected PDF has no template result
+- **WHEN** the selected PDF version has no template result
 - **THEN** the route explains that no analysis has been started and keeps the start action available
 
 #### Scenario: Stored PDF is unavailable
@@ -63,28 +96,42 @@ The Conformidade Template route SHALL load the available template objects from `
 
 ### Requirement: Template conformity result lifecycle
 
-The frontend SHALL obtain the selected PDF's template conformity result from `GET /templates/{docId}/conformidade` through the authenticated backend proxy and SHALL distinguish absent, processing, failed, and completed results. When the endpoint returns a collection of results, the frontend SHALL use the result most recently updated for that document; an empty collection SHALL be treated as an absent result.
+The frontend SHALL obtain the selected PDF's template conformity result from `GET /templates/{docId}/conformidade` through the authenticated backend proxy and SHALL distinguish absent, processing, failed, and completed results. When the endpoint returns a collection of results, the frontend SHALL use current-version executions to determine start eligibility and the primary view. If none is associated with the selected uploaded PDF version, the primary view SHALL fall back to the most recently updated historic execution while preserving the current-version eligibility decision.
 
 #### Scenario: Result is being processed
 
-- **WHEN** the selected document's most recently updated result reports `status` as `processing`
+- **WHEN** the selected document's most recently updated result for its current PDF version reports `status` as `processing`
 - **THEN** the route presents a processing state and refreshes only that selected document's result until it reaches a terminal state or the selection changes
+
+#### Scenario: New result replaces a visible historic report
+
+- **WHEN** a historic completed report is visible and the user starts analysis for a newer eligible version
+- **THEN** the route keeps the historic report visible while the newer execution is processing
+- **AND** replaces it with the newer report as soon as that execution reaches `completed`
 
 #### Scenario: Result is absent
 
-- **WHEN** the result endpoint returns HTTP 404 or an empty collection for the selected document
+- **WHEN** the result endpoint returns HTTP 404 or no result associated with the selected PDF version
+- **AND** no historic execution is available for that target
 - **AND** no accepted analysis start is awaiting that result
 - **THEN** the route presents a non-error state explaining that no analysis has been started
 
+#### Scenario: Current version has no matching result but history exists
+
+- **WHEN** no returned execution matches the selected uploaded PDF version
+- **AND** the target has a historic completed execution
+- **THEN** the primary view presents the most recently updated historic report
+- **AND** the start eligibility remains based on the selected version rather than the historic execution
+
 #### Scenario: Accepted result has not been materialized
 
-- **WHEN** the result endpoint returns HTTP 404 or an empty collection after the user received an accepted `processing` response for that target
+- **WHEN** the result endpoint returns HTTP 404 or no result associated with the selected PDF version after the user received an accepted `processing` response for that target
 - **THEN** the route retains its processing state and continues to poll that target
 
 #### Scenario: Result fails
 
 - **WHEN** the backend reports `status` as `error` or the result request fails
-- **THEN** the route presents a readable failure state and preserves the selected PDF and start action
+- **THEN** the route presents a readable failure state and preserves the selected PDF and disables another analysis for that PDF version
 
 #### Scenario: User changes the selected PDF
 
@@ -101,13 +148,19 @@ The frontend SHALL obtain the selected PDF's template conformity result from `GE
 
 ### Requirement: Template conformity status notifications
 
-The route SHALL show a single transient Sonner notification when a user-started template analysis completes or when its start, result request, or backend processing fails.
+The route SHALL show one transient Sonner notification for each user-started template analysis that completes and one for each distinct start, result request, or backend processing failure. A successfully accepted analysis that is already completed and a processing analysis that later reaches completion MUST both show the completion notification exactly once.
 
 #### Scenario: Processing result completes
 
-- **WHEN** polling observes a selected analysis transition from `processing` to `completed`
-- **THEN** the application presents one success notification
+- **WHEN** a user-started processing analysis reaches `completed` during polling
+- **THEN** the application presents one success notification for that completed execution
 - **AND** presents the completed report without further polling
+
+#### Scenario: Analysis is completed in the accepted response
+
+- **WHEN** the start response for a user-started analysis reports `completed`
+- **THEN** the application presents one success notification for that completed execution
+- **AND** presents or refreshes the completed report
 
 #### Scenario: Analysis start or processing fails
 
@@ -127,24 +180,31 @@ The Documentos page SHALL create backend documents, releases, and main analysis 
 
 ### Requirement: Completed template report presentation
 
-The route SHALL render a completed template conformity report in backend order, including its available metadata, summary, and every reported section and criterion, without rendering report content as HTML. On desktop, the metadata and summary blocks SHALL share the same top and bottom alignment when presented together, and each criterion inside an expanded section SHALL use the full available horizontal report width. Report labels and known status values SHALL be presented in Brazilian Portuguese.
+The route SHALL render a completed template conformity report in backend order, including its available metadata, summary, and every reported section and criterion, without rendering report content as HTML. On desktop, the metadata and summary blocks SHALL share the same top and bottom alignment when presented together. The summary's conformity-general and sections-attended indicators SHALL be displayed together above its available description, which SHALL occupy a separate full-width line below them. Each criterion inside an expanded section SHALL use the full available horizontal report width. For a criterion with `is_visual: false`, the route SHALL obtain and show only its deterministic field comparisons from `criteria[].checks`; for a criterion with `is_visual: true`, it SHALL obtain and show only its IA evaluation items from `criteria[].criteria`. Report labels and known status values SHALL be presented in Brazilian Portuguese.
 
 #### Scenario: Completed report includes deterministic checks
 
-- **WHEN** a completed report contains a section criterion with field comparisons
+- **WHEN** a completed report contains a section criterion with `is_visual: false` and field comparisons in `criteria[].checks`
 - **THEN** the route shows the criterion status and each field's template value, article value, and match status
 - **AND** the criterion uses the full available report width
 
 #### Scenario: Completed report includes visual checks
 
-- **WHEN** a completed report contains a visual criterion with evaluation items
+- **WHEN** a completed report contains a section criterion with `is_visual: true` and evaluation items in `criteria[].criteria`
 - **THEN** the route shows the criterion status and each evaluation item's criterion and justification
 - **AND** the criterion uses the full available report width
+
+#### Scenario: Criterion source is selected by its kind
+
+- **WHEN** a report criterion is normalized for presentation
+- **THEN** the route does not use `criteria[].criteria` for a deterministic criterion
+- **AND** does not use `criteria[].checks` for a visual criterion
 
 #### Scenario: Completed report contains divergent sections
 
 - **WHEN** a completed report contains one or more sections or criteria that do not match
 - **THEN** the route makes their divergent status clearly distinguishable from compatible content while keeping all report content available for review
+- **AND** aligns each section's status indicator at the opposite right edge from its title
 
 #### Scenario: User opens a completed report
 
@@ -152,11 +212,24 @@ The route SHALL render a completed template conformity report in backend order, 
 - **THEN** every section is collapsed initially
 - **AND** the user can independently expand the section they want to inspect
 
+#### Scenario: Document selector has more targets than its visible height
+
+- **WHEN** the Template document selector contains more grouped document targets than fit in the workspace
+- **THEN** the selector remains stationary and offers internal vertical scrolling to every target
+- **AND** no target is cut off below the workspace edge
+
+#### Scenario: Document selector displays multiple groups
+
+- **WHEN** the Template document selector renders document groups with one or more file targets
+- **THEN** each group is visually enclosed in a subtle distinct container
+- **AND** its group heading and file targets remain together within that container
+
 #### Scenario: Report includes metadata and summary
 
 - **WHEN** a completed report provides both metadata and summary content
 - **THEN** the route presents their top-level blocks aligned at the top of the report area
 - **AND** gives both blocks the same height on desktop
+- **AND** presents the conformity-general and sections-attended indicators above the available summary description
 - **AND** preserves readable presentation when only one block is available or on a narrow viewport
 
 #### Scenario: Report contains technical labels and status values
@@ -176,7 +249,7 @@ On desktop, the template workspace SHALL keep its selected-document list station
 
 ### Requirement: Template conformity result history
 
-The route SHALL provide a “Histórico” action for the selected PDF. When activated, it SHALL obtain the result collection from `GET /templates/{docId}/conformidade` and present every returned execution in a popup, ordered from most recently updated to least recently updated, with its status, creation time, update time, and available error detail. The popup SHALL make clear when no execution exists and SHALL be dismissible without changing the currently displayed result.
+The route SHALL provide a “Histórico” action for the selected PDF. When activated, it SHALL obtain the result collection from `GET /templates/{docId}/conformidade` and present every returned execution in a popup, ordered from most recently updated to least recently updated, with its status, creation time, update time, and available error detail. The popup SHALL make clear when no execution exists and SHALL be dismissible without changing the currently displayed result. It SHALL identify in that popup the execution whose report is currently displayed in the main workspace.
 
 #### Scenario: User opens a populated history
 
@@ -194,6 +267,12 @@ The route SHALL provide a “Histórico” action for the selected PDF. When act
 - **WHEN** the history request fails
 - **THEN** the popup presents a readable failure state
 - **AND** preserves the currently displayed result and selected PDF
+
+#### Scenario: History identifies the displayed result
+
+- **WHEN** the user opens a history that contains the result currently visible in the main workspace
+- **THEN** that execution is visually highlighted in the popup
+- **AND** it displays an “Em visualização” badge
 
 ### Requirement: Human-friendly conformity presentation
 

@@ -128,7 +128,53 @@ function linhaTituloMarkdown(linha: string) {
 }
 
 function tituloMensagem(linha: string) {
-    return linha.trim().replace(/^#{1,6}\s+/, "");
+    return linha
+        .trim()
+        .replace(/^#{1,6}\s+/, "")
+        .replace(/^\*\*(.+)\*\*:?$/, "$1")
+        .replace(/:$/, "");
+}
+
+function normalizarTexto(valor: string) {
+    return valor
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+}
+
+function tituloResumoAnalise(linha: string) {
+    const titulo = tituloMensagem(linha);
+    const tituloNormalizado = normalizarTexto(titulo);
+
+    if (tituloNormalizado === "pontos atendidos") {
+        return {
+            titulo,
+            classe: "border-emerald-600/35 bg-emerald-600/10 text-emerald-700 dark:text-emerald-300",
+        };
+    }
+
+    if (tituloNormalizado === "pontos a aprimorar") {
+        return {
+            titulo,
+            classe: "border-laranja/40 bg-laranja/10 text-laranja",
+        };
+    }
+
+    if (tituloNormalizado === "apresentacao da ia" || tituloNormalizado === "apresentacao da analise") {
+        return {
+            titulo,
+            classe: "border-brand/35 bg-subtle-hover text-ink",
+        };
+    }
+
+    if (tituloNormalizado === "orientacao final") {
+        return {
+            titulo,
+            classe: "border-brand/45 bg-panel-soft text-brand",
+        };
+    }
+
+    return null;
 }
 
 function obterAnaliseInicial(release: ReleaseExterno | undefined, contextKey: string): AnaliseInicialOiac | null {
@@ -737,13 +783,13 @@ export default function OiacIaChat({
                                             key={conversa.id}
                                             type="button"
                                             onClick={() => selecionarConversaAvulsa(conversa)}
-                                            className={`grid gap-1 rounded-lg border p-3 text-left transition ${
+                                            className={`grid min-w-0 gap-1 rounded-lg border p-3 text-left transition ${
                                                 ativa
                                                     ? "border-brand bg-panel-soft text-ink"
                                                     : "border-line bg-input-bg text-muted hover:border-brand hover:bg-subtle-hover hover:text-ink"
                                             }`}
                                         >
-                                            <span className="overflow-hidden text-ellipsis whitespace-nowrap font-display text-sm font-bold">
+                                            <span className="overflow-hidden text-ellipsis whitespace-nowrap font-display text-sm font-bold" title={conversa.name}>
                                                 {conversa.name}
                                             </span>
                                             <span className="text-xs font-semibold">
@@ -817,7 +863,7 @@ export default function OiacIaChat({
                                 </div>
                             ) : (
                                 <div className="flex min-w-0 items-center gap-2">
-                                    <h2 className="overflow-hidden text-ellipsis whitespace-nowrap font-display text-xl font-bold">
+                                    <h2 className="overflow-hidden text-ellipsis whitespace-nowrap font-display text-xl font-bold" title={conversaSelecionada?.name}>
                                         {conversaSelecionada?.name ?? "Selecione ou crie uma conversa"}
                                     </h2>
                                     {totalPaginasAtual > 0 ? (
@@ -1061,7 +1107,7 @@ function ListaConversasAgrupadas({
                                             <span className="overflow-hidden text-ellipsis whitespace-nowrap font-display text-sm font-bold">
                                                 {item.label}
                                             </span>
-                                            <span className="text-xs font-semibold">
+                                            <span className="min-w-0 truncate text-xs font-semibold" title={item.available ? item.fileName || formatarData(item.updatedAt) || "PDF disponível" : "Sem PDF"}>
                                                 {item.available
                                                     ? item.fileName || formatarData(item.updatedAt) || "PDF disponível"
                                                     : "Sem PDF"}
@@ -1078,11 +1124,25 @@ function ListaConversasAgrupadas({
     );
 }
 
-function ConteudoMensagem({ content }: { content: string }) {
+function ConteudoMensagem({ content, resumoAnalise = false }: { content: string; resumoAnalise?: boolean }) {
     return (
-        <div className="grid gap-3 text-justify text-base leading-7 md:text-lg md:leading-8">
+        <div className={`grid text-justify text-base leading-7 md:text-lg md:leading-8 ${resumoAnalise ? "gap-2" : "gap-3"}`}>
             {content.split("\n").map((linha, indice) => {
+                const tituloResumo = resumoAnalise ? tituloResumoAnalise(linha) : null;
                 const titulo = linhaTituloTopico(linha) || linhaTituloMarkdown(linha);
+
+                if (tituloResumo) {
+                    return (
+                        <strong
+                            className={`mt-1 w-fit rounded-md border px-3 py-1.5 font-display text-base font-bold leading-6 md:text-lg ${tituloResumo.classe}`}
+                            key={`${indice}-${linha}`}
+                        >
+                            {tituloResumo.titulo}
+                        </strong>
+                    );
+                }
+
+                if (resumoAnalise && !linha.trim()) return null;
 
                 return titulo ? (
                     <strong
@@ -1121,7 +1181,7 @@ function ListaMensagens({
             {analiseInicial ? (
                 <article className="grid w-fit max-w-full self-start gap-2 rounded-lg border border-line bg-panel p-4 text-ink shadow-[0_18px_44px_-32px_var(--chrome-shadow)]">
                     <CabecalhoMensagem ia data="" />
-                    {analiseInicial.content ? <ConteudoMensagem content={analiseInicial.content} /> : null}
+                    {analiseInicial.content ? <ConteudoMensagem content={analiseInicial.content} resumoAnalise /> : null}
                     <ArvoreAnaliseRelease
                         tipificacoes={analiseInicial.tipificacoes}
                         onSelecionarEvidencia={onSelecionarEvidencia}
@@ -1196,20 +1256,74 @@ function FontesAnalise({ fontes }: { fontes?: FonteAnaliseRelease[] }) {
     );
 }
 
+type ClassificacaoAvaliacao = "atendido" | "parcialmente_atendido" | "nao_atendido" | "nao_avaliado";
+
+function classificarAvaliacao(score?: number | null, fulfilled?: boolean | null): ClassificacaoAvaliacao {
+    if (typeof score === "number") {
+        if (score < 5) return "nao_atendido";
+        if (score <= 7) return "parcialmente_atendido";
+        return "atendido";
+    }
+
+    return fulfilled === true ? "atendido" : fulfilled === false ? "nao_atendido" : "nao_avaliado";
+}
+
 function StatusAvaliacao({ fulfilled, score }: { fulfilled?: boolean | null; score?: number | null }) {
-    const rotulo = fulfilled === true ? "Atendido" : fulfilled === false ? "Não atendido" : "Não avaliado";
-    const classe =
-        fulfilled === true
-            ? "border-emerald-600/35 bg-emerald-600/10 text-emerald-700 dark:text-emerald-300"
-            : fulfilled === false
-              ? "border-accent/40 bg-accent/10 text-accent"
-              : "border-line bg-input-bg text-muted";
+    const classificacao = classificarAvaliacao(score, fulfilled);
+    const { rotulo, classe } =
+        classificacao === "atendido"
+            ? {
+                  rotulo: "Atendido",
+                  classe: "border-emerald-600/35 bg-emerald-600/10 text-emerald-700 dark:text-emerald-300",
+              }
+            : classificacao === "parcialmente_atendido"
+              ? {
+                    rotulo: "Parcialmente atendido",
+                    classe: "border-laranja/40 bg-laranja/10 text-laranja",
+                }
+              : classificacao === "nao_atendido"
+                ? {
+                      rotulo: "Não atendido",
+                      classe: "border-red-500/35 bg-red-500/10 text-red-700 dark:text-red-300",
+                  }
+                : { rotulo: "Não avaliado", classe: "border-line bg-input-bg text-muted" };
 
     return (
-        <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
+        <span className="flex flex-wrap items-center gap-2 text-xs font-bold">
             <span className={`rounded-full border px-2 py-1 ${classe}`}>{rotulo}</span>
             {typeof score === "number" ? <span className="text-muted">Nota: {score}</span> : null}
-        </div>
+        </span>
+    );
+}
+
+function contagemTaxonomia(taxonomia: TaxonomiaAnaliseRelease) {
+    return (taxonomia.branches ?? []).reduce(
+        (contagem, criterio) => {
+            const classificacao = classificarAvaliacao(criterio.evaluation?.score, criterio.evaluation?.fulfilled);
+            if (classificacao === "atendido") contagem.atendidos += 1;
+            if (classificacao === "parcialmente_atendido") contagem.parcialmenteAtendidos += 1;
+            if (classificacao === "nao_atendido") contagem.naoAtendidos += 1;
+            return contagem;
+        },
+        { atendidos: 0, parcialmenteAtendidos: 0, naoAtendidos: 0 }
+    );
+}
+
+function ContagemTaxonomia({
+    atendidos,
+    parcialmenteAtendidos,
+    naoAtendidos,
+}: {
+    atendidos: number;
+    parcialmenteAtendidos: number;
+    naoAtendidos: number;
+}) {
+    return (
+        <span aria-label={`${atendidos} atendidos, ${parcialmenteAtendidos} parcialmente atendidos e ${naoAtendidos} não atendidos`} className="flex flex-wrap items-center gap-2 text-xs font-bold">
+            <span className="rounded-full border border-emerald-600/35 bg-emerald-600/10 px-2 py-1 text-emerald-700 dark:text-emerald-300">{atendidos} atendidos</span>
+            <span className="rounded-full border border-laranja/40 bg-laranja/10 px-2 py-1 text-laranja">{parcialmenteAtendidos} parcialmente atendidos</span>
+            <span className="rounded-full border border-red-500/35 bg-red-500/10 px-2 py-1 text-red-700 dark:text-red-300">{naoAtendidos} não atendidos</span>
+        </span>
     );
 }
 
@@ -1222,6 +1336,7 @@ function TaxonomiaAnaliseColapsavel({
 }) {
     const [aberta, setAberta] = useState(false);
     const reduzirMovimento = useReducedMotion();
+    const contagem = contagemTaxonomia(taxonomia);
 
     return (
         <section className="border-t border-line pt-4">
@@ -1231,12 +1346,15 @@ function TaxonomiaAnaliseColapsavel({
                 type="button"
                 onClick={() => setAberta((atual) => !atual)}
             >
-                <span>{taxonomia.title}</span>
-                <ChevronDown
-                    aria-hidden="true"
-                    className={`shrink-0 transition-transform ${aberta ? "rotate-180" : ""}`}
-                    size={18}
-                />
+                <span className="min-w-0">{taxonomia.title}</span>
+                <span className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-3">
+                    <ContagemTaxonomia {...contagem} />
+                    <ChevronDown
+                        aria-hidden="true"
+                        className={`shrink-0 transition-transform ${aberta ? "rotate-180" : ""}`}
+                        size={18}
+                    />
+                </span>
             </button>
 
             <AnimatePresence initial={false}>
@@ -1313,13 +1431,25 @@ function ArvoreAnaliseRelease({
 }) {
     return (
         <div className="grid gap-5 border-t border-line pt-4">
+            <div className="grid gap-2 rounded-lg border border-brand/35 bg-subtle-hover p-3">
+                <span className="font-display text-xs font-bold uppercase tracking-[0.14em] text-accent">
+                    Tipificação utilizada
+                </span>
+                <div className="flex flex-wrap gap-2">
+                    {tipificacoes.map((tipificacao, indiceTipificacao) => (
+                        <span
+                            className="rounded-full border border-brand/35 bg-panel px-3 py-1 text-sm font-bold text-ink"
+                            key={tipificacao.id ?? `${tipificacao.name}-${indiceTipificacao}`}
+                        >
+                            {tipificacao.name}
+                        </span>
+                    ))}
+                </div>
+            </div>
             <h3 className="font-display text-lg font-bold text-ink">Avaliação detalhada</h3>
             {tipificacoes.map((tipificacao, indiceTipificacao) => (
                 <section className="grid gap-4 border-l-2 border-brand/55 pl-4" key={tipificacao.id ?? `${tipificacao.name}-${indiceTipificacao}`}>
-                    <div className="grid gap-2">
-                        <h4 className="font-display text-base font-bold text-ink md:text-lg">{tipificacao.name}</h4>
-                        <FontesAnalise fontes={tipificacao.sources} />
-                    </div>
+                    <FontesAnalise fontes={tipificacao.sources} />
 
                     {tipificacao.taxonomies?.map((taxonomia, indiceTaxonomia) => (
                         <TaxonomiaAnaliseColapsavel

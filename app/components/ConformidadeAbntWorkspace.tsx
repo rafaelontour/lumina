@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, BookCheck, Eye, FileCheck2, FileText, FileWarning, History, Loader2, X } from "lucide-react";
+import { AlertTriangle, BookCheck, CheckCircle2, ChevronDown, Eye, FileCheck2, FileText, FileWarning, History, Loader2, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -44,7 +44,7 @@ type RelatorioAbntEstruturado = {
     criteriosTotal?: number;
     criteriosAprovados?: number;
     descricao?: string;
-    criterios: Array<{ item: string; norma: string; justificativa: string }>;
+    criterios: Array<{ item: string; norma: string; justificativa: string; match?: boolean }>;
 };
 
 function formatarData(data: string) {
@@ -127,6 +127,7 @@ function normalizarRelatorioAbnt(valor: Record<string, unknown> | null): Relator
                 item: comoTexto(criterio.criteria_item),
                 norma: comoTexto(criterio.standard),
                 justificativa: comoTexto(criterio.justification),
+                match: typeof criterio.match === "boolean" ? criterio.match : undefined,
             }];
         })
         : [];
@@ -148,6 +149,25 @@ function normalizarRelatorioAbnt(valor: Record<string, unknown> | null): Relator
     if (metadados.length === 0 && emConformidade === undefined && criteriosTotal === undefined && !descricao && criterios.length === 0) return null;
 
     return { metadados, emConformidade, criteriosTotal, criteriosAprovados, descricao, criterios };
+}
+
+function IndicadorConformidadeAbnt({ match }: { match?: boolean }) {
+    if (match === undefined) return null;
+
+    const conforme = match === true;
+
+    return (
+        <span
+            className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${
+                conforme
+                    ? "border-emerald-600/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                    : "border-red-600/40 bg-red-500/10 text-red-700 dark:text-red-300"
+            }`}
+        >
+            {conforme ? <CheckCircle2 aria-hidden="true" size={15} /> : <XCircle aria-hidden="true" size={15} />}
+            {conforme ? "Em conformidade" : "Não conforme"}
+        </span>
+    );
 }
 
 function RelatorioAbnt({ relatorio }: { relatorio: RelatorioAbntEstruturado }) {
@@ -180,19 +200,21 @@ function RelatorioAbnt({ relatorio }: { relatorio: RelatorioAbntEstruturado }) {
                     {possuiResumo ? (
                         <section className="grid h-full content-start gap-3 rounded-lg border border-line bg-panel p-4">
                             <h3 className="font-display text-base font-bold text-ink">Resumo da análise</h3>
-                            <div className="grid gap-3 sm:grid-cols-[auto_auto_minmax(0,1fr)] sm:items-start">
-                                {relatorio.emConformidade !== undefined ? (
-                                    <div className={`rounded-lg border px-4 py-3 text-center ${relatorio.emConformidade ? "border-brand/40 bg-subtle-hover" : "border-accent/40 bg-accent/10"}`}>
-                                        <span className="block text-xs font-bold uppercase tracking-wide text-muted">Conformidade geral</span>
-                                        <strong className={`mt-1 block font-display text-sm ${relatorio.emConformidade ? "text-ink" : "text-accent"}`}>{relatorio.emConformidade ? "Em conformidade" : "Requer ajustes"}</strong>
-                                    </div>
-                                ) : null}
-                                {relatorio.criteriosTotal !== undefined ? (
-                                    <div className="rounded-lg bg-input-bg px-4 py-3 text-center">
-                                        <strong className="font-display text-2xl text-ink">{relatorio.criteriosAprovados ?? 0}/{relatorio.criteriosTotal}</strong>
-                                        <span className="mt-1 block text-xs font-bold uppercase tracking-wide text-muted">Critérios atendidos</span>
-                                    </div>
-                                ) : null}
+                            <div className="grid gap-3">
+                                <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
+                                    {relatorio.emConformidade !== undefined ? (
+                                        <div className={`rounded-lg border px-4 py-3 text-center ${relatorio.emConformidade ? "border-brand/40 bg-subtle-hover" : "border-accent/40 bg-accent/10"}`}>
+                                            <span className="block text-xs font-bold uppercase tracking-wide text-muted">Conformidade geral</span>
+                                            <strong className={`mt-1 block font-display text-sm ${relatorio.emConformidade ? "text-ink" : "text-accent"}`}>{relatorio.emConformidade ? "Em conformidade" : "Requer ajustes"}</strong>
+                                        </div>
+                                    ) : null}
+                                    {relatorio.criteriosTotal !== undefined ? (
+                                        <div className="rounded-lg bg-input-bg px-4 py-3 text-center">
+                                            <strong className="font-display text-2xl text-ink">{relatorio.criteriosAprovados ?? 0}/{relatorio.criteriosTotal}</strong>
+                                            <span className="mt-1 block text-xs font-bold uppercase tracking-wide text-muted">Critérios atendidos</span>
+                                        </div>
+                                    ) : null}
+                                </div>
                                 {relatorio.descricao ? <p className="whitespace-pre-wrap text-sm leading-6 text-muted">{relatorio.descricao}</p> : null}
                             </div>
                         </section>
@@ -204,10 +226,20 @@ function RelatorioAbnt({ relatorio }: { relatorio: RelatorioAbntEstruturado }) {
                     <h3 className="font-display text-base font-bold text-ink">Critérios avaliados</h3>
                     <ol className="grid gap-3">
                         {relatorio.criterios.map((criterio, indice) => (
-                            <li className="grid gap-3 rounded-lg border border-line bg-input-bg p-4" key={`${criterio.item}-${indice}`}>
-                                <div className="grid gap-1"><strong className="text-base text-ink">Critério</strong><span className="whitespace-pre-wrap text-sm leading-6 text-muted">{criterio.item}</span></div>
-                                <div className="grid gap-1"><strong className="text-base text-ink">Norma ou referência</strong><span className="whitespace-pre-wrap text-sm leading-6 text-muted">{criterio.norma}</span></div>
-                                <div className="grid gap-1"><strong className="text-base text-ink">Justificativa</strong><span className="whitespace-pre-wrap text-sm leading-6 text-muted">{criterio.justificativa}</span></div>
+                            <li key={`${criterio.item}-${indice}`}>
+                                <details className="group rounded-lg border border-line bg-input-bg">
+                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
+                                        <strong className="min-w-0 text-base text-ink">{criterio.item}</strong>
+                                        <div className="ml-auto flex shrink-0 items-center justify-end gap-3">
+                                            <IndicadorConformidadeAbnt match={criterio.match} />
+                                            <ChevronDown aria-hidden="true" className="transition group-open:rotate-180" size={18} />
+                                        </div>
+                                    </summary>
+                                    <div className="grid gap-3 border-t border-line p-4">
+                                        <div className="grid gap-1"><strong className="text-base text-ink">Norma ou referência</strong><span className="whitespace-pre-wrap text-sm leading-6 text-muted">{criterio.norma}</span></div>
+                                        <div className="grid gap-1"><strong className="text-base text-ink">Justificativa</strong><span className="whitespace-pre-wrap text-sm leading-6 text-muted">{criterio.justificativa}</span></div>
+                                    </div>
+                                </details>
                             </li>
                         ))}
                     </ol>
@@ -614,13 +646,18 @@ export default function ConformidadeAbntWorkspace() {
             </header>
 
             {carregandoDocumentos ? (
-                <Estado titulo="Carregando documentos para conformidade..." descricao="Aguarde..." icone={<Loader2 className="animate-spin motion-reduce:animate-none" size={32} />} />
+                <div className="grid min-h-0 place-items-center rounded-lg border border-dashed border-line p-6 text-center text-muted">
+                    <div className="inline-flex items-center gap-3">
+                        <Loader2 className="animate-spin text-accent motion-reduce:animate-none" size={28} />
+                        <strong className="font-display text-lg text-ink">Carregando documentos para conformidade...</strong>
+                    </div>
+                </div>
             ) : erroDocumentos ? (
                 <Estado titulo={erroDocumentos} icone={<AlertTriangle size={32} />} erro />
             ) : semDocumentos ? (
                 <Estado titulo="Nenhum PDF enviado está disponível." descricao="Envie um PDF na página Documentos para habilitar a análise ABNT." icone={<FileWarning size={32} />} />
             ) : (
-                <div className="grid min-h-0 gap-5 xl:grid-cols-[minmax(17rem,0.75fr)_minmax(0,2fr)]">
+                <div className="grid min-h-0 grid-rows-[minmax(0,1fr)] gap-5 overflow-hidden xl:grid-cols-[minmax(17rem,0.75fr)_minmax(0,2fr)]">
                     <aside className="grid h-fit self-start gap-4 rounded-lg border border-line bg-panel p-3 shadow-[0_18px_44px_-28px_var(--chrome-shadow)]" aria-label="Documentos enviados">
                         {documentosAgrupados.map((grupo) => (
                             <section className="grid gap-2" key={grupo.id}>
@@ -641,7 +678,7 @@ export default function ConformidadeAbntWorkspace() {
                                             onClick={() => setAlvoSelecionadoId(documento.id)}
                                         >
                                         <strong className="font-display text-sm">{documento.componentLabel}</strong>
-                                        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm">{documento.fileName}</span>
+                                        <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm" title={documento.fileName}>{documento.fileName}</span>
                                         {documento.uploadedAt ? <small>{formatarData(documento.uploadedAt)}</small> : null}
                                             {documento.novaVersaoEmAnalise ? <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-line bg-panel px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-muted"><Loader2 className="animate-spin motion-reduce:animate-none" size={12} />Nova versão em análise</span> : null}
                                             {documentoProcessando ? <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-brand/40 bg-panel px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-ink"><Loader2 className="animate-spin motion-reduce:animate-none" size={12} />Em análise</span> : null}
@@ -653,12 +690,12 @@ export default function ConformidadeAbntWorkspace() {
                         ))}
                     </aside>
 
-                    <div className="grid min-h-0 content-start gap-4 overflow-y-auto rounded-lg border border-line bg-panel p-5 shadow-[0_18px_44px_-28px_var(--chrome-shadow)]">
+                    <div className="grid min-h-0 content-start gap-4 overflow-y-auto rounded-lg border border-line bg-panel p-5 pb-10 shadow-[0_18px_44px_-28px_var(--chrome-shadow)]">
                         {!documentoSelecionado ? <Estado titulo="Selecione um documento para iniciar a conformidade ABNT." icone={<BookCheck size={32} />} /> : null}
                         {documentoSelecionado ? (
                             <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-input-bg p-4">
                                 <div className="min-w-0 flex-1">
-                                    <strong className="block font-display text-sm text-ink">{documentoSelecionado.fileName}</strong>
+                                    <strong className="block truncate font-display text-sm text-ink" title={documentoSelecionado.fileName}>{documentoSelecionado.fileName}</strong>
                                     <span className="mt-1 block text-sm text-muted">{documentoSelecionado.novaVersaoEmAnalise ? "Uma nova versão foi enviada em Documentos. Você já pode iniciar uma análise para ela; o último relatório permanece visível como referência." : versaoJaAnalisada ? "Esta versão já possui uma análise ABNT. Envie uma nova versão em Documentos para habilitar outra análise." : "A referência ABNT é definida pelo sistema."}</span>
                                 </div>
                                 <button
@@ -699,9 +736,9 @@ export default function ConformidadeAbntWorkspace() {
                 <div className="fixed inset-0 z-50 grid place-items-center bg-preto/45 p-5 backdrop-blur-sm" role="presentation">
                     <section className="grid max-h-[min(42rem,calc(100dvh-2.5rem))] w-full max-w-2xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-xl border border-line bg-panel shadow-xl" role="dialog" aria-modal="true" aria-labelledby="titulo-historico-abnt">
                         <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
-                            <div>
+                            <div className="min-w-0 flex-1">
                                 <h2 className="font-display text-xl font-bold text-ink" id="titulo-historico-abnt">Histórico de análises ABNT</h2>
-                                <p className="mt-1 text-sm text-muted">{documentoSelecionado?.fileName ?? "Documento selecionado"}</p>
+                                <p className="mt-1 truncate text-sm text-muted" title={documentoSelecionado?.fileName}>{documentoSelecionado?.fileName ?? "Documento selecionado"}</p>
                             </div>
                             <button aria-label="Fechar histórico" className="grid size-9 place-items-center rounded-lg border border-line text-muted transition hover:bg-input-bg hover:text-ink" type="button" onClick={() => setHistoricoAberto(false)}><X size={18} /></button>
                         </header>

@@ -145,8 +145,9 @@ function normalizarRelatorio(valor: Record<string, unknown> | null): RelatorioTe
         const criterios = comoLista(secao.criteria).flatMap((valorCriterio, indiceCriterio) => {
             const criterio = comoRegistro(valorCriterio);
             if (!criterio) return [];
+            const visual = criterio.is_visual === true;
 
-            const checks = comoLista(criterio.checks).flatMap((valorCheck) => {
+            const checks = (visual ? [] : comoLista(criterio.checks)).flatMap((valorCheck) => {
                 const check = comoRegistro(valorCheck);
                 if (!check) return [];
                 return [{
@@ -157,7 +158,7 @@ function normalizarRelatorio(valor: Record<string, unknown> | null): RelatorioTe
                 }];
             });
 
-            const criteriosVisuais = comoLista(criterio.criterios).flatMap((valorItem) => {
+            const criteriosVisuais = (visual ? comoLista(criterio.criteria) : []).flatMap((valorItem) => {
                 const item = comoRegistro(valorItem);
                 if (!item) return [];
                 return [{
@@ -170,7 +171,7 @@ function normalizarRelatorio(valor: Record<string, unknown> | null): RelatorioTe
                 id: comoTexto(criterio.id, `criterio-${indiceSecao}-${indiceCriterio}`),
                 title: comoTexto(criterio.title, "Critério sem título"),
                 match: criterio.match === true,
-                visual: criterio.is_visual === true,
+                visual,
                 checks,
                 criterios: criteriosVisuais,
             }];
@@ -223,13 +224,7 @@ function descreverResumoParaUsuario(descricao?: string) {
 function CriterioCard({ criterio }: { criterio: CriterioTemplate }) {
     return (
         <article className="grid gap-3 rounded-lg border border-line bg-input-bg p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="font-display text-base font-bold text-ink">{criterio.title}</h4>
-                <ResultadoBadge match={criterio.match} />
-            </div>
-            <span className="w-fit rounded-full border border-line px-2 py-1 text-xs font-bold text-muted">
-                {criterio.visual ? "Análise visual" : "Comparação de conteúdo"}
-            </span>
+            <h4 className="font-display text-base font-bold text-ink">{criterio.title}</h4>
 
             {criterio.visual && criterio.criterios.length > 0 ? (
                 <div className="grid gap-3">
@@ -286,11 +281,11 @@ function SecaoCard({ secao }: { secao: SecaoTemplate }) {
             className={`group rounded-lg border bg-panel ${secao.match ? "border-line" : "border-accent/50"}`}
         >
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
-                <div className="flex min-w-0 flex-wrap items-center gap-3">
-                    <h3 className="font-display text-lg font-bold text-ink">{secao.title}</h3>
+                <h3 className="min-w-0 font-display text-lg font-bold text-ink">{secao.title}</h3>
+                <div className="ml-auto flex shrink-0 items-center justify-end gap-3">
                     <ResultadoBadge match={secao.match} />
+                    <ChevronDown className="transition group-open:rotate-180" size={18} />
                 </div>
-                <ChevronDown className="shrink-0 transition group-open:rotate-180" size={18} />
             </summary>
             <div className="grid gap-3 border-t border-line p-4">
                 {secao.criterios.length > 0 ? (
@@ -663,11 +658,12 @@ export default function ConformidadeTemplateWorkspace() {
             </header>
 
             {carregandoDocumentos ? (
-                <Estado
-                    titulo="Carregando documentos para conformidade..."
-                    descricao="Aguarde..."
-                    icone={<Loader2 className="animate-spin" size={32} />}
-                />
+                <div className="grid min-h-0 place-items-center rounded-lg border border-dashed border-line p-6 text-center text-muted">
+                    <div className="inline-flex items-center gap-3">
+                        <Loader2 className="animate-spin text-accent" size={28} />
+                        <strong className="font-display text-lg text-ink">Carregando documentos para conformidade...</strong>
+                    </div>
+                </div>
             ) : erroDocumentos ? (
                 <Estado titulo={erroDocumentos} icone={<AlertTriangle size={32} />} erro />
             ) : semDocumentos ? (
@@ -677,10 +673,10 @@ export default function ConformidadeTemplateWorkspace() {
                     icone={<FileWarning size={32} />}
                 />
             ) : (
-                <div className="grid min-h-0 gap-5 xl:grid-cols-[minmax(17rem,0.75fr)_minmax(0,2fr)]">
-                    <aside className="grid h-fit self-start gap-4 rounded-lg border border-line bg-panel p-3 shadow-[0_18px_44px_-28px_var(--chrome-shadow)]" aria-label="Documentos enviados">
+                <div className="grid min-h-0 grid-rows-[minmax(0,1fr)] gap-5 overflow-hidden xl:grid-cols-[minmax(17rem,0.75fr)_minmax(0,2fr)]">
+                    <aside className="grid min-h-0 self-stretch content-start gap-4 overflow-y-auto rounded-lg border border-line bg-panel p-3 shadow-[0_18px_44px_-28px_var(--chrome-shadow)]" aria-label="Documentos enviados">
                         {documentosAgrupados.map((grupo) => (
-                            <section className="grid gap-2" key={grupo.id}>
+                            <section className="grid gap-2 rounded-lg border border-brand/25 bg-panel-soft/85 p-2 shadow-[0_10px_24px_-22px_var(--chrome-shadow)]" key={grupo.id}>
                                 <header className="border-b border-line px-1 pb-2">
                                     <span className="text-xs font-bold uppercase tracking-[0.14em] text-accent">{grupo.kind}</span>
                                     <h2 className="mt-1 font-display text-sm font-bold text-ink">{grupo.title}</h2>
@@ -713,7 +709,7 @@ export default function ConformidadeTemplateWorkspace() {
                                             }}
                                         >
                                             <strong className="font-display text-sm">{documento.componentLabel}</strong>
-                                        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm">
+                                        <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm" title={documento.fileName}>
                                             {documento.fileName ?? "Sem PDF enviado"}
                                         </span>
                                             {documento.uploadedAt ? <small>{formatarData(documento.uploadedAt)}</small> : null}
@@ -727,7 +723,7 @@ export default function ConformidadeTemplateWorkspace() {
                         ))}
                     </aside>
 
-                    <div className="grid min-h-0 content-start gap-4 overflow-y-auto rounded-lg border border-line bg-panel p-5 shadow-[0_18px_44px_-28px_var(--chrome-shadow)]">
+                    <div className="grid min-h-0 content-start gap-4 overflow-y-auto rounded-lg border border-line bg-panel p-5 pb-10 shadow-[0_18px_44px_-28px_var(--chrome-shadow)]">
                         {!documentoSelecionado ? (
                             <Estado titulo="Selecione um documento para iniciar a conformidade com template." icone={<FileCheck2 size={32} />} />
                         ) : null}
@@ -815,23 +811,25 @@ export default function ConformidadeTemplateWorkspace() {
                                     {relatorio.emConformidade !== undefined || (relatorio.secoesPassaram !== undefined && relatorio.secoesTotal !== undefined) || descreverResumoParaUsuario(relatorio.descricao) ? (
                                         <article className="grid h-full content-start gap-3 rounded-lg border border-line bg-input-bg p-4">
                                             <h2 className="font-display text-base font-bold text-ink">Resumo da análise</h2>
-                                            <div className="grid gap-3 sm:grid-cols-[auto_auto_minmax(0,1fr)] sm:items-start">
-                                                {relatorio.emConformidade !== undefined ? (
-                                                    <div className={`rounded-lg border px-4 py-3 text-center ${relatorio.emConformidade ? "border-brand/40 bg-subtle-hover" : "border-accent/40 bg-accent/10"}`}>
-                                                        <span className="block text-xs font-bold uppercase tracking-wide text-muted">Conformidade geral</span>
-                                                        <strong className={`mt-1 block font-display text-sm ${relatorio.emConformidade ? "text-ink" : "text-accent"}`}>
-                                                            {relatorio.emConformidade ? "Em conformidade" : "Requer ajustes"}
-                                                        </strong>
-                                                    </div>
-                                                ) : null}
-                                                {relatorio.secoesPassaram !== undefined && relatorio.secoesTotal !== undefined ? (
-                                                    <div className="rounded-lg bg-panel px-4 py-3 text-center">
-                                                        <strong className="font-display text-2xl text-ink">
-                                                            {relatorio.secoesPassaram}/{relatorio.secoesTotal}
-                                                        </strong>
-                                                        <span className="mt-1 block text-xs font-bold uppercase tracking-wide text-muted">Seções compatíveis</span>
-                                                    </div>
-                                                ) : null}
+                                            <div className="grid gap-3">
+                                                <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
+                                                    {relatorio.emConformidade !== undefined ? (
+                                                        <div className={`rounded-lg border px-4 py-3 text-center ${relatorio.emConformidade ? "border-brand/40 bg-subtle-hover" : "border-accent/40 bg-accent/10"}`}>
+                                                            <span className="block text-xs font-bold uppercase tracking-wide text-muted">Conformidade geral</span>
+                                                            <strong className={`mt-1 block font-display text-sm ${relatorio.emConformidade ? "text-ink" : "text-accent"}`}>
+                                                                {relatorio.emConformidade ? "Em conformidade" : "Requer ajustes"}
+                                                            </strong>
+                                                        </div>
+                                                    ) : null}
+                                                    {relatorio.secoesPassaram !== undefined && relatorio.secoesTotal !== undefined ? (
+                                                        <div className="rounded-lg bg-panel px-4 py-3 text-center">
+                                                            <strong className="font-display text-2xl text-ink">
+                                                                {relatorio.secoesPassaram}/{relatorio.secoesTotal}
+                                                            </strong>
+                                                            <span className="mt-1 block text-xs font-bold uppercase tracking-wide text-muted">Seções compatíveis</span>
+                                                        </div>
+                                                    ) : null}
+                                                </div>
                                                 {descreverResumoParaUsuario(relatorio.descricao) ? <p className="whitespace-pre-wrap text-sm leading-6 text-muted">{descreverResumoParaUsuario(relatorio.descricao)}</p> : null}
                                             </div>
                                         </article>
@@ -851,9 +849,9 @@ export default function ConformidadeTemplateWorkspace() {
                 <div className="fixed inset-0 z-50 grid place-items-center bg-preto/45 p-5 backdrop-blur-sm" role="presentation">
                     <section className="grid max-h-[min(42rem,calc(100dvh-2.5rem))] w-full max-w-2xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-xl border border-line bg-panel shadow-xl" role="dialog" aria-modal="true" aria-labelledby="titulo-historico-conformidade">
                         <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
-                            <div>
+                            <div className="min-w-0 flex-1">
                                 <h2 id="titulo-historico-conformidade" className="font-display text-xl font-bold text-ink">Histórico de análises</h2>
-                                <p className="mt-1 text-sm text-muted">{documentoSelecionado?.fileName ?? "Documento selecionado"}</p>
+                                <p className="mt-1 truncate text-sm text-muted" title={documentoSelecionado?.fileName}>{documentoSelecionado?.fileName ?? "Documento selecionado"}</p>
                             </div>
                             <button className="grid size-9 place-items-center rounded-lg border border-line text-muted transition hover:bg-input-bg hover:text-ink" type="button" aria-label="Fechar histórico" onClick={() => setHistoricoAberto(false)}>
                                 <X size={18} />

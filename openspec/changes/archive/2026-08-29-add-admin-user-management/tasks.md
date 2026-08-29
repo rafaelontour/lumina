@@ -20,7 +20,7 @@
 
 ## 4. Verificação
 
-- [ ] 4.1 Validar manualmente a busca, o cancelamento, a remoção confirmada de uma conta de teste e os estados de erro como administrador.
-- [ ] 4.2 Validar manualmente a alteração confirmada entre `DEFAULT` e `ADMIN`, seu cancelamento e erro de atualização como administrador.
-- [ ] 4.3 Validar que conta não administrativa não vê nem acessa a área e que a própria conta não pode ser removida ou ter a permissão alterada.
+- [x] 4.1 Validar manualmente a busca, o cancelamento, a remoção confirmada de uma conta de teste e os estados de erro como administrador.
+- [x] 4.2 Validar manualmente a alteração confirmada entre `DEFAULT` e `ADMIN`, seu cancelamento e erro de atualização como administrador.
+- [x] 4.3 Validar que conta não administrativa não vê nem acessa a área e que a própria conta não pode ser removida ou ter a permissão alterada.
 - [x] 4.4 Executar `pnpm lint`, `pnpm build` e `openspec validate add-admin-user-management --type change`.

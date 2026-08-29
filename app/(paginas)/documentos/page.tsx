@@ -51,6 +51,7 @@ import type {
     GrupoDocumento,
     StatusRevisao,
 } from "@/app/types/Documento";
+import type { Tipificacao } from "@/app/types/Tipificacao";
 
 type FiltroDocumento = "Todos" | string;
 
@@ -158,6 +159,12 @@ type AnalisePendenteDocumento = {
     releaseId?: string;
 };
 
+type UploadPendenteTipificacao = {
+    documentoId: string;
+    componenteKey: string;
+    file: File;
+};
+
 const intervaloVerificacaoAnaliseMs = 5000;
 
 export default function DocumentosPage() {
@@ -172,6 +179,12 @@ export default function DocumentosPage() {
     const [carregandoDocumentos, setCarregandoDocumentos] = useState(true);
     const [alvoUpload, setAlvoUpload] = useState<string | null>(null);
     const [uploadConfirmado, setUploadConfirmado] = useState<string | null>(null);
+    const [uploadPendenteTipificacao, setUploadPendenteTipificacao] = useState<UploadPendenteTipificacao | null>(null);
+    const [tipificacoesUpload, setTipificacoesUpload] = useState<Tipificacao[]>([]);
+    const [tipificacaoSelecionadaId, setTipificacaoSelecionadaId] = useState("");
+    const [carregandoTipificacoesUpload, setCarregandoTipificacoesUpload] = useState(false);
+    const [erroTipificacoesUpload, setErroTipificacoesUpload] = useState("");
+    const [confirmandoTipificacao, setConfirmandoTipificacao] = useState(false);
     const [erroGrupos, setErroGrupos] = useState("");
     const [erroWorkspace, setErroWorkspace] = useState("");
     const [documentoParaApagar, setDocumentoParaApagar] = useState<DocumentoProjeto | null>(null);
@@ -180,6 +193,7 @@ export default function DocumentosPage() {
     const [nomeDocumentoEmEdicao, setNomeDocumentoEmEdicao] = useState("");
     const [salvandoNomeDocumento, setSalvandoNomeDocumento] = useState(false);
     const idsAnaliseNestaSessao = useRef(new Set<string>());
+    const versaoConsultaTipificacoesUpload = useRef(0);
     const carregarDocumentos = useCallback(async ({ mostrarCarregamento = false }: { mostrarCarregamento?: boolean } = {}) => {
         if (mostrarCarregamento) setCarregandoDocumentos(true);
         const [resultado, err] = await carregarWorkspaceDocumentos();
@@ -432,7 +446,69 @@ export default function DocumentosPage() {
         toast.success(`${grupoSelecionado.name} adicionado.`, { id: notificacaoId });
     }
 
-    async function enviarComponente(documentoId: string, componenteKey: string, file: File) {
+    async function carregarTipificacoesParaUpload() {
+        const versaoConsulta = ++versaoConsultaTipificacoesUpload.current;
+        setCarregandoTipificacoesUpload(true);
+        setErroTipificacoesUpload("");
+        setTipificacoesUpload([]);
+
+        const [tipificacoes, tipificacoesErr] = await listarTipificacoes();
+        if (versaoConsulta !== versaoConsultaTipificacoesUpload.current) return;
+
+        if (tipificacoesErr) {
+            setErroTipificacoesUpload(tipificacoesErr.message);
+        } else if (tipificacoes.length === 0) {
+            setErroTipificacoesUpload("Nenhuma tipificação está disponível. Cadastre uma tipificação antes de iniciar a análise.");
+        } else {
+            setTipificacoesUpload(tipificacoes);
+        }
+
+        setCarregandoTipificacoesUpload(false);
+    }
+
+    function abrirSelecaoTipificacao(documentoId: string, componenteKey: string, file: File) {
+        if (!file.name.toLowerCase().endsWith(".pdf")) {
+            toast.error("Envie um arquivo PDF.");
+            return;
+        }
+
+        setUploadPendenteTipificacao({ documentoId, componenteKey, file });
+        setTipificacaoSelecionadaId("");
+        setConfirmandoTipificacao(false);
+        void carregarTipificacoesParaUpload();
+    }
+
+    function cancelarSelecaoTipificacao() {
+        if (confirmandoTipificacao) return;
+        versaoConsultaTipificacoesUpload.current += 1;
+        setUploadPendenteTipificacao(null);
+        setTipificacaoSelecionadaId("");
+        setTipificacoesUpload([]);
+        setErroTipificacoesUpload("");
+        setCarregandoTipificacoesUpload(false);
+    }
+
+    async function confirmarUploadComTipificacao() {
+        const uploadPendente = uploadPendenteTipificacao;
+        if (!uploadPendente || !tipificacaoSelecionadaId) return;
+
+        setConfirmandoTipificacao(true);
+        setUploadPendenteTipificacao(null);
+        await enviarComponente(
+            uploadPendente.documentoId,
+            uploadPendente.componenteKey,
+            uploadPendente.file,
+            tipificacaoSelecionadaId
+        );
+        setConfirmandoTipificacao(false);
+    }
+
+    async function enviarComponente(
+        documentoId: string,
+        componenteKey: string,
+        file: File,
+        typificationId: string
+    ) {
         const target = `${documentoId}:${componenteKey}`;
         setAlvoUpload(target);
         setUploadConfirmado(null);
@@ -447,22 +523,10 @@ export default function DocumentosPage() {
 
             if (!documento || !componente) throw new Error("Não foi possível localizar a seção do documento.");
 
-            const [[usuario, usuarioErr], [tipificacoes, tipificacoesErr]] = await Promise.all([
-                obterUsuarioAtual(),
-                listarTipificacoes(),
-            ]);
+            const [usuario, usuarioErr] = await obterUsuarioAtual();
 
             if (usuarioErr) throw usuarioErr;
-            if (tipificacoesErr) throw tipificacoesErr;
             if (!usuario) throw new Error("Não foi possível identificar o usuário atual.");
-
-            const typificationId = selecionarTipificacaoDocumento({
-                tipificacoes,
-                groupId: documento.groupId,
-                itemId: componente.itemId,
-            });
-
-            if (!typificationId) throw new Error("Nenhuma tipificação foi encontrada para criar o documento.");
 
             const criadoEm = new Date().toISOString();
             const [documentoExterno, documentoErr] = await criarDocumentoExterno({
@@ -747,6 +811,102 @@ export default function DocumentosPage() {
                 </div>
             ) : null}
 
+            {uploadPendenteTipificacao ? (
+                <div
+                    className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
+                    role="presentation"
+                    onMouseDown={(event) => {
+                        if (event.target === event.currentTarget && !confirmandoTipificacao) {
+                            cancelarSelecaoTipificacao();
+                        }
+                    }}
+                >
+                    <div
+                        className="grid w-full max-w-lg gap-5 rounded-lg border border-line bg-panel p-5 text-ink shadow-[0_22px_70px_-22px_rgba(0,0,0,0.45)]"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="tipificacao-upload-title"
+                    >
+                        <header className="flex items-start justify-between gap-4 border-b border-line pb-4">
+                            <div>
+                                <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-accent">
+                                    Análise do documento
+                                </span>
+                                <h2 id="tipificacao-upload-title" className="mt-2 font-display text-2xl font-bold">
+                                    Escolha a tipificação
+                                </h2>
+                            </div>
+                            <button
+                                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg text-ink transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
+                                type="button"
+                                disabled={confirmandoTipificacao}
+                                onClick={cancelarSelecaoTipificacao}
+                                aria-label="Fechar"
+                            >
+                                <X size={18} />
+                            </button>
+                        </header>
+
+                        <div className="grid gap-3">
+                            <p className="text-sm leading-6 text-muted">
+                                A tipificação escolhida será usada para analisar <span className="inline-block max-w-full truncate align-bottom font-bold text-ink" title={uploadPendenteTipificacao.file.name}>{uploadPendenteTipificacao.file.name}</span>.
+                            </p>
+
+                            {carregandoTipificacoesUpload ? (
+                                <EstadoModal icone={<Loader2 className="animate-spin" size={22} />} texto="Carregando tipificações..." />
+                            ) : erroTipificacoesUpload ? (
+                                <div className="grid gap-3 rounded-lg border border-accent/35 bg-input-bg p-4 text-sm leading-6 text-muted">
+                                    <span>{erroTipificacoesUpload}</span>
+                                    <button
+                                        className="inline-flex h-10 w-fit items-center rounded-lg border border-line px-3 font-semibold text-ink transition hover:bg-subtle-hover"
+                                        type="button"
+                                        onClick={() => void carregarTipificacoesParaUpload()}
+                                    >
+                                        Tentar novamente
+                                    </button>
+                                </div>
+                            ) : (
+                                <label className="grid gap-2">
+                                    <span className="font-display text-sm font-bold text-ink">Tipificação</span>
+                                    <select
+                                        className="h-11 rounded-lg border border-line bg-input-bg px-3 text-ink outline-none transition focus:border-brand"
+                                        value={tipificacaoSelecionadaId}
+                                        onChange={(event) => setTipificacaoSelecionadaId(event.target.value)}
+                                    >
+                                        <option value="">Selecione uma tipificação</option>
+                                        {tipificacoesUpload.map((tipificacao) => (
+                                            <option key={tipificacao.id} value={tipificacao.id}>
+                                                {tipificacao.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            )}
+                        </div>
+
+                        <div className="flex flex-wrap justify-end gap-3">
+                            <button
+                                className="h-11 rounded-lg border border-line px-4 font-display text-sm font-semibold text-ink transition hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
+                                type="button"
+                                disabled={confirmandoTipificacao}
+                                onClick={cancelarSelecaoTipificacao}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                className="inline-flex h-11 items-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-background transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-55"
+                                type="button"
+                                disabled={carregandoTipificacoesUpload || Boolean(erroTipificacoesUpload) || !tipificacaoSelecionadaId || confirmandoTipificacao}
+                                onClick={() => void confirmarUploadComTipificacao()}
+                            >
+                                {confirmandoTipificacao ? <Loader2 className="animate-spin" size={18} /> : null}
+                                Confirmar envio
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
             {documentoParaApagar ? (
                 <div
                     className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
@@ -887,7 +1047,7 @@ export default function DocumentosPage() {
                             onSaveTitle={salvarNomeDocumento}
                             alvoUpload={alvoUpload}
                             uploadConfirmado={uploadConfirmado}
-                            onUpload={enviarComponente}
+                            onUpload={abrirSelecaoTipificacao}
                         />
                     ))}
                 </div>
@@ -1049,7 +1209,7 @@ function CartaoDocumento({
 
                             {latest ? (
                                 <div className="rounded-lg border border-line bg-panel p-3 text-sm">
-                                    <strong className="block overflow-hidden text-ellipsis whitespace-nowrap font-display text-ink">
+                                    <strong className="block overflow-hidden text-ellipsis whitespace-nowrap font-display text-ink" title={latest.fileName}>
                                         {latest.fileName}
                                     </strong>
                                     {enviando ? (
