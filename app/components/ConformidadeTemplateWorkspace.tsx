@@ -132,6 +132,19 @@ function nomeArquivoSeguro(caminho: string) {
     return ultimoSegmento || "Arquivo não informado";
 }
 
+function nomeArquivoDoTemplate(valor: string, templates: TemplateConformidade[], templateAtivo: TemplateConformidade | null) {
+    const templateAssociado = templates.find((template) =>
+        template.id === valor
+        || template.file_path === valor
+        || template.original_filename === valor
+        || template.name === valor
+    );
+
+    return templateAssociado?.original_filename
+        ?? templateAtivo?.original_filename
+        ?? (valor.includes("/") || valor.includes("\\") ? nomeArquivoSeguro(valor) : "Nome do template não disponível");
+}
+
 function normalizarRelatorio(valor: Record<string, unknown> | null): RelatorioTemplate | null {
     const relatorio = comoRegistro(valor);
     if (!relatorio) return null;
@@ -163,7 +176,7 @@ function normalizarRelatorio(valor: Record<string, unknown> | null): RelatorioTe
                 if (!item) return [];
                 return [{
                     criterio: comoTexto(item.criteria_item),
-                    justificativa: comoTexto(item.justificativa),
+                    justificativa: comoTexto(item.justification),
                 }];
             });
 
@@ -795,14 +808,18 @@ export default function ConformidadeTemplateWorkspace() {
                                                 {relatorio.metadados.map((metadado) => (
                                                     <div className="min-w-0" key={metadado.rotulo}>
                                                         <dt className="text-xs font-bold uppercase tracking-wide text-muted">{metadado.rotulo}</dt>
-                                                        {metadado.chave === "article_file" || metadado.chave === "template_file" ? (
-                                                            <dd className="mt-1">
-                                                                <span aria-label={`${metadado.rotulo}: ${nomeArquivoSeguro(metadado.valor)}`} className="inline-flex max-w-full items-center gap-2 rounded-md border border-line bg-panel px-2.5 py-1.5 text-sm text-ink">
+                                                        {metadado.chave === "article_file" || metadado.chave === "template_file" ? (() => {
+                                                            const nomeArquivo = metadado.chave === "article_file"
+                                                                ? documentoSelecionado?.fileName || (metadado.valor.includes("/") || metadado.valor.includes("\\") ? nomeArquivoSeguro(metadado.valor) : "Nome do arquivo não disponível")
+                                                                : nomeArquivoDoTemplate(metadado.valor, templates, templateAtivo);
+
+                                                            return <dd className="mt-1">
+                                                                <span aria-label={`${metadado.rotulo}: ${nomeArquivo}`} className="inline-flex max-w-full items-center gap-2 rounded-md border border-line bg-panel px-2.5 py-1.5 text-sm text-ink">
                                                                     <FileText aria-hidden="true" className="shrink-0 text-accent" size={16} />
-                                                                    <span className="overflow-hidden text-ellipsis whitespace-nowrap">{nomeArquivoSeguro(metadado.valor)}</span>
+                                                                    <span className="overflow-hidden text-ellipsis whitespace-nowrap">{nomeArquivo}</span>
                                                                 </span>
-                                                            </dd>
-                                                        ) : <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-ink" title={metadado.valor}>{metadado.valor}</dd>}
+                                                            </dd>;
+                                                        })() : <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-ink" title={metadado.valor}>{metadado.valor}</dd>}
                                                     </div>
                                                 ))}
                                             </dl>

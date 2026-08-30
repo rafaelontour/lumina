@@ -170,7 +170,7 @@ function IndicadorConformidadeAbnt({ match }: { match?: boolean }) {
     );
 }
 
-function RelatorioAbnt({ relatorio }: { relatorio: RelatorioAbntEstruturado }) {
+function RelatorioAbnt({ relatorio, nomeArquivoSelecionado }: { relatorio: RelatorioAbntEstruturado; nomeArquivoSelecionado?: string }) {
     const possuiResumo = relatorio.emConformidade !== undefined || relatorio.criteriosTotal !== undefined || relatorio.descricao;
 
     return (
@@ -184,14 +184,17 @@ function RelatorioAbnt({ relatorio }: { relatorio: RelatorioAbntEstruturado }) {
                                 {relatorio.metadados.map((metadado) => (
                                     <div className="min-w-0" key={metadado.rotulo}>
                                         <dt className="text-xs font-bold uppercase tracking-wide text-muted">{metadado.rotulo}</dt>
-                                        {metadado.chave === "article_file" ? (
-                                            <dd className="mt-1">
-                                                <span aria-label={`Arquivo analisado: ${nomeArquivoSeguro(metadado.valor)}`} className="inline-flex max-w-full items-center gap-2 rounded-md border border-line bg-input-bg px-2.5 py-1.5 text-sm text-ink">
+                                        {metadado.chave === "article_file" ? (() => {
+                                            const nomeArquivo = nomeArquivoSelecionado
+                                                || (metadado.valor.includes("/") || metadado.valor.includes("\\") ? nomeArquivoSeguro(metadado.valor) : "Nome do arquivo não disponível");
+
+                                            return <dd className="mt-1">
+                                                <span aria-label={`Arquivo analisado: ${nomeArquivo}`} className="inline-flex max-w-full items-center gap-2 rounded-md border border-line bg-input-bg px-2.5 py-1.5 text-sm text-ink">
                                                     <FileText aria-hidden="true" className="shrink-0 text-accent" size={16} />
-                                                    <span className="overflow-hidden text-ellipsis whitespace-nowrap">{nomeArquivoSeguro(metadado.valor)}</span>
+                                                    <span className="overflow-hidden text-ellipsis whitespace-nowrap">{nomeArquivo}</span>
                                                 </span>
-                                            </dd>
-                                        ) : <dd className="mt-1 text-sm leading-6 text-ink">{metadado.valor}</dd>}
+                                            </dd>;
+                                        })() : <dd className="mt-1 text-sm leading-6 text-ink">{metadado.valor}</dd>}
                                     </div>
                                 ))}
                             </dl>
@@ -724,7 +727,7 @@ export default function ConformidadeAbntWorkspace() {
                                         <h2 className="font-display text-xl font-bold text-ink">Resultado da análise</h2>
                                         <p className="mt-1 text-sm text-muted">Concluída em {formatarData(resultadoVisivel.updated_at)}</p>
                                     </header>
-                                    {relatorioAbnt ? <RelatorioAbnt relatorio={relatorioAbnt} /> : <ValorRelatorio valor={resultadoVisivel.report} />}
+                                    {relatorioAbnt ? <RelatorioAbnt relatorio={relatorioAbnt} nomeArquivoSelecionado={documentoSelecionado.fileName} /> : <ValorRelatorio valor={resultadoVisivel.report} />}
                                 </article>
                             ) : <Estado titulo="A análise foi concluída, mas não trouxe detalhes estruturados." descricao={`Atualizada em ${formatarData(resultadoVisivel.updated_at)}.`} icone={<FileWarning size={28} />} />
                         ) : null}
