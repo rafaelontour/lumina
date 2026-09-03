@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ChevronDown, Eye, FileCheck2, FileText, FileWarning, History, Loader2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Eye, FileCheck2, FileText, FileWarning, History, Loader2, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -145,77 +145,7 @@ function nomeArquivoDoTemplate(valor: string, templates: TemplateConformidade[],
         ?? (valor.includes("/") || valor.includes("\\") ? nomeArquivoSeguro(valor) : "Nome do template não disponível");
 }
 
-function normalizarRelatorio(valor: Record<string, unknown> | null): RelatorioTemplate | null {
-    const relatorio = comoRegistro(valor);
-    if (!relatorio) return null;
 
-    const metadata = comoRegistro(relatorio.metadata);
-    const summary = comoRegistro(relatorio.summary);
-    const secoes = comoLista(relatorio.sections).flatMap((valorSecao, indiceSecao) => {
-        const secao = comoRegistro(valorSecao);
-        if (!secao) return [];
-
-        const criterios = comoLista(secao.criteria).flatMap((valorCriterio, indiceCriterio) => {
-            const criterio = comoRegistro(valorCriterio);
-            if (!criterio) return [];
-            const visual = criterio.is_visual === true;
-
-            const checks = (visual ? [] : comoLista(criterio.checks)).flatMap((valorCheck) => {
-                const check = comoRegistro(valorCheck);
-                if (!check) return [];
-                return [{
-                    field: comoTexto(check.field),
-                    templateValue: comoTexto(check.template_value),
-                    articleValue: comoTexto(check.article_value),
-                    match: check.match === true,
-                }];
-            });
-
-            const criteriosVisuais = (visual ? comoLista(criterio.criteria) : []).flatMap((valorItem) => {
-                const item = comoRegistro(valorItem);
-                if (!item) return [];
-                return [{
-                    criterio: comoTexto(item.criteria_item),
-                    justificativa: comoTexto(item.justification),
-                }];
-            });
-
-            return [{
-                id: comoTexto(criterio.id, `criterio-${indiceSecao}-${indiceCriterio}`),
-                title: comoTexto(criterio.title, "Critério sem título"),
-                match: criterio.match === true,
-                visual,
-                checks,
-                criterios: criteriosVisuais,
-            }];
-        });
-
-        return [{
-            id: comoTexto(secao.id, `secao-${indiceSecao}`),
-            title: comoTexto(secao.title, "Seção sem título"),
-            match: secao.match === true,
-            criterios,
-        }];
-    });
-
-    return {
-        metadados: metadata
-            ? Object.entries(metadata).flatMap(([chave, valor]) => {
-                if (typeof valor !== "string" || !valor.trim()) return [];
-                return [{
-                    chave,
-                    rotulo: rotuloMetadado(chave),
-                    valor: chave === "approach" ? descreverAbordagemParaUsuario(valor) : valor,
-                }];
-            })
-            : [],
-        emConformidade: typeof summary?.is_compliant === "boolean" ? summary.is_compliant : undefined,
-        secoesPassaram: typeof summary?.sections_passed === "number" ? summary.sections_passed : undefined,
-        secoesTotal: typeof summary?.sections_total === "number" ? summary.sections_total : undefined,
-        descricao: typeof summary?.description === "string" ? summary.description : undefined,
-        secoes,
-    };
-}
 
 function formatarData(data: string) {
     const valor = new Date(data);
@@ -234,10 +164,30 @@ function descreverResumoParaUsuario(descricao?: string) {
     return descricao ? descreverAbordagemParaUsuario(descricao) : undefined;
 }
 
+
+
+function ResultadoBadge({ match }: { match: boolean }) {
+    return (
+        <span
+            className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${
+                match
+                    ? "border-emerald-600/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                    : "border-red-600/40 bg-red-500/10 text-red-700 dark:text-red-300"
+            }`}
+        >
+            {match ? <CheckCircle2 aria-hidden="true" size={13} /> : <XCircle aria-hidden="true" size={13} />}
+            {match ? "Em conformidade" : "Não conforme"}
+        </span>
+    );
+}
+
 function CriterioCard({ criterio }: { criterio: CriterioTemplate }) {
     return (
         <article className="grid gap-3 rounded-lg border border-line bg-input-bg p-4">
-            <h4 className="font-display text-base font-bold text-ink">{criterio.title}</h4>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="font-display text-base font-bold text-ink">{criterio.title}</h4>
+                <ResultadoBadge match={criterio.match} />
+            </div>
 
             {criterio.visual && criterio.criterios.length > 0 ? (
                 <div className="grid gap-3">
@@ -258,6 +208,7 @@ function CriterioCard({ criterio }: { criterio: CriterioTemplate }) {
                                 <th className="px-3 py-2">Item analisado</th>
                                 <th className="px-3 py-2">No template</th>
                                 <th className="px-3 py-2">No documento</th>
+                                <th className="px-3 py-2">Conformidade</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -266,6 +217,7 @@ function CriterioCard({ criterio }: { criterio: CriterioTemplate }) {
                                     <td className="px-3 py-2 font-semibold text-ink">{check.field}</td>
                                     <td className="whitespace-pre-wrap px-3 py-2 text-muted">{check.templateValue}</td>
                                     <td className="whitespace-pre-wrap px-3 py-2 text-muted">{check.articleValue}</td>
+                                    <td className="px-3 py-2"><ResultadoBadge match={check.match} /></td>
                                 </tr>
                             ))}
                         </tbody>
@@ -273,18 +225,6 @@ function CriterioCard({ criterio }: { criterio: CriterioTemplate }) {
                 </div>
             ) : null}
         </article>
-    );
-}
-
-function ResultadoBadge({ match }: { match: boolean }) {
-    return (
-        <span
-            className={`rounded-full border px-2 py-1 text-xs font-bold ${
-                match ? "border-brand/40 bg-subtle-hover text-ink" : "border-accent/50 text-accent"
-            }`}
-        >
-            {match ? "Compatível" : "Divergência"}
-        </span>
     );
 }
 
@@ -352,6 +292,79 @@ export default function ConformidadeTemplateWorkspace() {
         notificacoes.current.add(chave);
         toast[tipo](mensagem);
     }, []);
+
+    function normalizarRelatorio(valor: Record<string, unknown> | null): RelatorioTemplate | null {
+        const relatorio = comoRegistro(valor);
+        if (!relatorio) return null;
+
+        const metadata = comoRegistro(relatorio.metadata);
+        const summary = comoRegistro(relatorio.summary);
+        const secoes = comoLista(relatorio.sections).flatMap((valorSecao, indiceSecao) => {
+            const secao = comoRegistro(valorSecao);
+            if (!secao) return [];
+
+            const criterios = comoLista(secao.criteria).flatMap((valorCriterio, indiceCriterio) => {
+                const criterio = comoRegistro(valorCriterio);
+                if (!criterio) return [];
+                const visual = criterio.is_visual === true;
+
+                const checks = (visual ? [] : comoLista(criterio.checks)).flatMap((valorCheck) => {
+                    const check = comoRegistro(valorCheck);
+                    if (!check) return [];
+                    return [{
+                        field: comoTexto(check.field),
+                        templateValue: comoTexto(check.template_value),
+                        articleValue: comoTexto(check.article_value),
+                        match: check.match === true,
+                    }];
+                });
+
+                const criteriosVisuais = (visual ? comoLista(criterio.criteria) : []).flatMap((valorItem) => {
+                    const item = comoRegistro(valorItem);
+                    if (!item) return [];
+                    return [{
+                        criterio: comoTexto(item.criteria_item),
+                        justificativa: comoTexto(item.justification),
+                    }];
+                });
+
+                return [{
+                    id: comoTexto(criterio.id, `criterio-${indiceSecao}-${indiceCriterio}`),
+                    title: comoTexto(criterio.title, "Critério sem título"),
+                    match: criterio.match === true,
+                    visual,
+                    checks,
+                    criterios: criteriosVisuais,
+                }];
+            });
+
+            return [{
+                id: comoTexto(secao.id, `secao-${indiceSecao}`),
+                title: comoTexto(secao.title, "Seção sem título"),
+                match: secao.match === true,
+                criterios,
+            }];
+        });
+
+        return {
+            metadados: metadata
+                ? Object.entries(metadata).flatMap(([chave, valor]) => {
+                    if (typeof valor !== "string" || !valor.trim()) return [];
+                    if (chave === "approach") return [];
+                    return [{
+                        chave,
+                        rotulo: rotuloMetadado(chave),
+                        valor: chave === "approach" ? descreverAbordagemParaUsuario(valor) : valor,
+                    }];
+                })
+                : [],
+            emConformidade: typeof summary?.is_compliant === "boolean" ? summary.is_compliant : undefined,
+            secoesPassaram: typeof summary?.sections_passed === "number" ? summary.sections_passed : undefined,
+            secoesTotal: typeof summary?.sections_total === "number" ? summary.sections_total : undefined,
+            descricao: typeof summary?.description === "string" ? summary.description : undefined,
+            secoes,
+        };
+    }
 
     useEffect(() => {
         let cancelado = false;
@@ -424,7 +437,6 @@ export default function ConformidadeTemplateWorkspace() {
         () => documentos.find((documento) => documento.id === alvoSelecionadoId) ?? null,
         [documentos, alvoSelecionadoId]
     );
-    const templateAtivo = templates.find((template) => template.id === templateSelecionado) ?? templates[0] ?? null;
     const documentosAgrupados = useMemo(() => {
         const grupos = new Map<string, GrupoDocumentosConformidade>();
 
@@ -656,6 +668,10 @@ export default function ConformidadeTemplateWorkspace() {
             ? "Esta versão já possui uma análise com template. Envie uma nova versão em Documentos para habilitar outra análise."
             : null;
     const relatorio = resultadoVisivel?.status === "completed" ? normalizarRelatorio(resultadoVisivel.report) : null;
+    const templateDoRelatorio = relatorio?.metadados.find((m) => m.chave === "template_file")?.valor;
+    const templateAtivo = (versaoJaAnalisada && templateDoRelatorio
+        ? templates.find((t) => t.id === templateDoRelatorio || t.file_path === templateDoRelatorio || t.original_filename === templateDoRelatorio || t.name === templateDoRelatorio)
+        : null) ?? templates.find((template) => template.id === templateSelecionado) ?? templates[0] ?? null;
     const semDocumentos = !carregandoDocumentos && !erroDocumentos && documentos.length === 0;
 
     return (
@@ -746,10 +762,10 @@ export default function ConformidadeTemplateWorkspace() {
                                     <label className="grid gap-2 text-sm font-semibold text-ink">
                                         Template de comparação
                                         <select
-                                            className="h-11 rounded-lg border border-line bg-panel px-3 text-sm font-normal text-ink outline-none transition focus:border-brand"
+                                            className="h-11 rounded-lg border border-line bg-panel px-3 text-sm font-normal text-ink outline-none transition focus:border-brand disabled:cursor-not-allowed disabled:opacity-75"
                                             value={templateAtivo?.id ?? ""}
                                             onChange={(event) => setTemplateSelecionado(event.target.value)}
-                                            disabled={iniciandoAnalise || templates.length === 0}
+                                            disabled={iniciandoAnalise || analiseProcessando || versaoJaAnalisada || templates.length === 0}
                                         >
                                             {templates.length === 0 ? <option value="">Nenhum template disponível</option> : null}
                                             {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}

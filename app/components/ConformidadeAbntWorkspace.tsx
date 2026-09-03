@@ -113,44 +113,44 @@ function nomeArquivoSeguro(caminho: string) {
     return ultimoSegmento || "Arquivo analisado";
 }
 
-function normalizarRelatorioAbnt(valor: Record<string, unknown> | null): RelatorioAbntEstruturado | null {
-    const relatorio = comoRegistro(valor);
-    if (!relatorio) return null;
+    function normalizarRelatorioAbnt(valor: Record<string, unknown> | null): RelatorioAbntEstruturado | null {
+        const relatorio = comoRegistro(valor);
+        if (!relatorio) return null;
 
-    const metadata = comoRegistro(relatorio.metadata);
-    const summary = comoRegistro(relatorio.summary);
-    const criterios = Array.isArray(relatorio.criteria)
-        ? relatorio.criteria.flatMap((valorCriterio) => {
-            const criterio = comoRegistro(valorCriterio);
-            if (!criterio) return [];
-            return [{
-                item: comoTexto(criterio.criteria_item),
-                norma: comoTexto(criterio.standard),
-                justificativa: comoTexto(criterio.justification),
-                match: typeof criterio.match === "boolean" ? criterio.match : undefined,
-            }];
-        })
-        : [];
-    const metadados = metadata
-        ? Object.entries(metadata).flatMap(([chave, valorMetadado]) => {
-            if (typeof valorMetadado !== "string" || !valorMetadado.trim()) return [];
-            return [{
-                chave,
-                rotulo: rotuloMetadado(chave),
-                valor: chave === "approach" ? descreverAbordagem(valorMetadado) : valorMetadado,
-            }];
-        })
-        : [];
-    const emConformidade = typeof summary?.is_compliant === "boolean" ? summary.is_compliant : undefined;
-    const criteriosTotal = typeof summary?.criteria_total === "number" ? summary.criteria_total : undefined;
-    const criteriosAprovados = typeof summary?.criteria_passed === "number" ? summary.criteria_passed : undefined;
-    const descricao = typeof summary?.description === "string" ? summary.description : undefined;
+        const metadata = comoRegistro(relatorio.metadata);
+        const summary = comoRegistro(relatorio.summary);
+        const criterios = Array.isArray(relatorio.criteria)
+            ? relatorio.criteria.flatMap((valorCriterio) => {
+                const criterio = comoRegistro(valorCriterio);
+                if (!criterio) return [];
+                return [{
+                    item: comoTexto(criterio.criteria_item),
+                    norma: comoTexto(criterio.standard),
+                    justificativa: comoTexto(criterio.justification),
+                    match: typeof criterio.match === "boolean" ? criterio.match : undefined,
+                }];
+            })
+            : [];
+        const metadados = metadata
+            ? Object.entries(metadata).flatMap(([chave, valorMetadado]) => {
+                if (typeof valorMetadado !== "string" || !valorMetadado.trim()) return [];
+                if (chave === "approach") return [];
+                return [{
+                    chave,
+                    rotulo: rotuloMetadado(chave),
+                    valor: chave === "approach" ? descreverAbordagem(valorMetadado) : valorMetadado,
+                }];
+            })
+            : [];
+        const emConformidade = typeof summary?.is_compliant === "boolean" ? summary.is_compliant : undefined;
+        const criteriosTotal = typeof summary?.criteria_total === "number" ? summary.criteria_total : undefined;
+        const criteriosAprovados = typeof summary?.criteria_passed === "number" ? summary.criteria_passed : undefined;
+        const descricao = typeof summary?.description === "string" ? summary.description : undefined;
 
-    if (metadados.length === 0 && emConformidade === undefined && criteriosTotal === undefined && !descricao && criterios.length === 0) return null;
+        if (metadados.length === 0 && emConformidade === undefined && criteriosTotal === undefined && !descricao && criterios.length === 0) return null;
 
-    return { metadados, emConformidade, criteriosTotal, criteriosAprovados, descricao, criterios };
-}
-
+        return { metadados, emConformidade, criteriosTotal, criteriosAprovados, descricao, criterios };
+    }
 function IndicadorConformidadeAbnt({ match }: { match?: boolean }) {
     if (match === undefined) return null;
 
