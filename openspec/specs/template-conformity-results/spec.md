@@ -30,7 +30,7 @@ The Conformidade Template route SHALL list every workspace component from the ba
 
 ### Requirement: User-initiated template conformity
 
-The Conformidade Template route SHALL load the available template objects from `GET /templates`, present each object's `name` as a selectable label, and start an analysis only after the user selects a target and a template and explicitly activates the start action. The selected template's UUID SHALL be sent as `template_id` to the conformity endpoint. The route MUST permit at most one template-conformity execution for each uploaded PDF version and MUST enable another execution only after Documentos provides a newer PDF version whose main analysis is ready for that component; the upload itself MUST NOT start template conformity.
+The Conformidade Template route SHALL load the available template objects from `GET /templates`, present each object's `name` as a selectable label, and start an analysis only after the user selects a target and a template and explicitly activates the start action. The selected template's UUID SHALL be sent as `template_id` to the conformity endpoint. The route MUST permit at most one template-conformity execution for each uploaded PDF version and MUST enable another execution only after Documentos provides a newer PDF version whose main analysis is ready for that component; the upload itself MUST NOT start template conformity. When an uploaded PDF version already has an execution (the action displays “Análise já realizada”), the template selector MUST remain fixed on the template used for that execution and SHALL NOT permit selecting another template.
 
 #### Scenario: User selects an available template
 
@@ -54,7 +54,8 @@ The Conformidade Template route SHALL load the available template objects from `
 #### Scenario: Template analysis already exists for the current version
 
 - **WHEN** the selected uploaded PDF version already has a returned template-conformity execution
-- **THEN** the route keeps the start action disabled
+- **THEN** the route keeps the start action disabled displaying “Análise já realizada”
+- **AND** the template selector is disabled and fixed on the template used for that execution
 - **AND** explains that another analysis requires a new PDF version in Documentos
 
 #### Scenario: Document list identifies an analyzed version
@@ -180,18 +181,20 @@ The Documentos page SHALL create backend documents, releases, and main analysis 
 
 ### Requirement: Completed template report presentation
 
-The route SHALL render a completed template conformity report in backend order, including its available metadata, summary, and every reported section and criterion, without rendering report content as HTML. On desktop, the metadata and summary blocks SHALL share the same top and bottom alignment when presented together. The summary's conformity-general and sections-attended indicators SHALL be displayed together above its available description, which SHALL occupy a separate full-width line below them. Each criterion inside an expanded section SHALL use the full available horizontal report width. For a criterion with `is_visual: false`, the route SHALL obtain and show only its deterministic field comparisons from `criteria[].checks`; for a criterion with `is_visual: true`, it SHALL obtain and show only its IA evaluation items from `criteria[].criteria`. Report labels and known status values SHALL be presented in Brazilian Portuguese.
+The route SHALL render a completed template conformity report in backend order, including its available metadata (omitting technical approach details), summary, and every reported section and criterion, without rendering report content as HTML. On desktop, the metadata and summary blocks SHALL share the same top and bottom alignment when presented together. The summary's conformity-general and sections-attended indicators SHALL be displayed together above its available description, which SHALL occupy a separate full-width line below them. Each criterion inside an expanded section SHALL use the full available horizontal report width and display a conformity badge next to its title (“Em conformidade” in green with a check icon when match: true, and “Não conforme” in red with an x icon when match: false). For a criterion with `is_visual: false`, the route SHALL obtain and show only its deterministic field comparisons from `criteria[].checks`, rendering for each check item its field name, template value, article value, and a conformity badge (“Em conformidade” in green with a check icon when match: true, and “Não conforme” in red with an x icon when match: false). For a criterion with `is_visual: true`, it SHALL obtain and show only its IA evaluation items from `criteria[].criteria`. Report labels and known status values SHALL be presented in Brazilian Portuguese.
 
 #### Scenario: Completed report includes deterministic checks
 
 - **WHEN** a completed report contains a section criterion with `is_visual: false` and field comparisons in `criteria[].checks`
-- **THEN** the route shows the criterion status and each field's template value, article value, and match status
+- **THEN** the route shows the criterion title with its conformity badge (“Em conformidade” or “Não conforme” with icon)
+- **AND** renders each check item with its field name, template value, article value, and conformity badge (“Em conformidade” or “Não conforme” with icon)
 - **AND** the criterion uses the full available report width
 
 #### Scenario: Completed report includes visual checks
 
 - **WHEN** a completed report contains a section criterion with `is_visual: true` and evaluation items in `criteria[].criteria`
-- **THEN** the route shows the criterion status and each evaluation item's criterion and justification
+- **THEN** the route shows the criterion title with its conformity badge (“Em conformidade” or “Não conforme” with icon)
+- **AND** shows each evaluation item's criterion and justification
 - **AND** the criterion uses the full available report width
 
 #### Scenario: Criterion source is selected by its kind
@@ -230,12 +233,14 @@ The route SHALL render a completed template conformity report in backend order, 
 - **THEN** the route presents their top-level blocks aligned at the top of the report area
 - **AND** gives both blocks the same height on desktop
 - **AND** presents the conformity-general and sections-attended indicators above the available summary description
+- **AND** omits any approach metadata item from the metadata list
 - **AND** preserves readable presentation when only one block is available or on a narrow viewport
 
 #### Scenario: Report contains technical labels and status values
 
-- **WHEN** metadata or summary contains fields such as `approach` or `is_compliant`
+- **WHEN** metadata or summary contains fields such as `model` or `is_compliant`
 - **THEN** the route presents a Brazilian Portuguese label and a readable Portuguese value for that field
+- **AND** omits `approach` from the metadata list
 
 ### Requirement: Fixed document selector with scrollable report
 
