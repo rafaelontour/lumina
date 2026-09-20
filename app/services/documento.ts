@@ -194,13 +194,15 @@ export async function listarGruposDocumento(): Promise<[GrupoDocumento[], Error 
     return [Array.isArray(grupos) ? grupos : [], null];
 }
 
-export async function listarProjetosDocumento(): Promise<[ProjetoBackend[], Error | null]> {
+export async function listarProjetosDocumento(
+    scope?: "mine" | "advisees" | "all"
+): Promise<[ProjetoBackend[], Error | null]> {
     const [response, err] = await executarRequisicaoProtegida(
         () =>
             axios.get<RespostaProjetosBackend>(montarUrlApi("/project"), {
                 withCredentials: true,
                 headers: { "Cache-Control": "no-store" },
-                params: { limit: 100 },
+                params: { limit: 100, ...(scope ? { scope } : {}) },
             }),
         "Não foi possível carregar os projetos."
     );

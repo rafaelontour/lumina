@@ -35,6 +35,7 @@ export type VinculoOrientacao = {
     advisee_id: string;
     role_type: PapelOrientacao;
     status: StatusOrientacao;
+    created_at: string;
 };
 
 export type RespostaMeusOrientadores = {
@@ -43,4 +44,8 @@ export type RespostaMeusOrientadores = {
 
 export type RespostaMeusOrientandos = {
     advisees: CartaoOrientando[];
+};
+
+export type RespostaVinculosOrientacao = {
+    advisorships: VinculoOrientacao[];
 };

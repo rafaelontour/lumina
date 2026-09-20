@@ -7,6 +7,7 @@ import type {
     CartaoOrientando,
     RespostaMeusOrientadores,
     RespostaMeusOrientandos,
+    RespostaVinculosOrientacao,
     VinculoOrientacao,
 } from "@/app/types/Orientacao";
 import { criarErroApi, executarRequisicao, montarUrlApi } from "./autenticacao";
@@ -93,6 +94,26 @@ export async function listarMeusOrientandos(): Promise<[CartaoOrientando[], Erro
     if (err) return [[], err];
     const orientandos = response?.data.advisees;
     return [Array.isArray(orientandos) ? orientandos.filter((item) => item.status === "ACTIVE") : [], null];
+}
+
+export async function listarVinculosOrientacaoAtivos(orientadorId: string): Promise<[VinculoOrientacao[], Error | null]> {
+    const [response, err] = await executarRequisicaoProtegida(
+        () =>
+            axios.get<RespostaVinculosOrientacao>(montarUrlApi("/advisorship"), {
+                withCredentials: true,
+                headers: { "Cache-Control": "no-store" },
+                params: {
+                    advisor_id: orientadorId,
+                    status: "ACTIVE",
+                    limit: 100,
+                },
+            }),
+        "Não foi possível carregar as datas dos vínculos de orientação."
+    );
+
+    if (err) return [[], err];
+    const vinculos = response?.data.advisorships;
+    return [Array.isArray(vinculos) ? vinculos.filter((item) => item.status === "ACTIVE") : [], null];
 }
 
 export async function listarDocumentosOrientando(orientandoId: string): Promise<[DocumentoOrientando[], Error | null]> {

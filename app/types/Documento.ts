@@ -22,6 +22,7 @@ export type DocumentoOrientando = {
     name: string;
     identifier: string;
     description?: string | null;
+    source?: string | null;
     grupo?: string | null;
     tipo_documento?: string | null;
     projeto_nome?: string | null;
@@ -140,6 +141,7 @@ export type ProjetoBackend = {
     name: string;
     description: string | null;
     document_group_id: string | null;
+    created_by?: string | null;
     status: string;
     created_at: string;
     updated_at: string | null;
