@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { LogOut, Menu, Moon, PanelLeftClose, Sun } from "lucide-react";
+import { LogOut, Menu, Moon, PanelLeftClose, Sun, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -18,8 +18,9 @@ interface CabecalhoProps {
 
 export default function Cabecalho({ menuRecolhido, aoAlternarMenu }: CabecalhoProps) {
     const { resolvedTheme, setTheme } = useTheme();
-    const { encerrarSessao } = useAuth();
+    const { encerrarSessao, orientadorPrincipal, usuario } = useAuth();
     const router = useRouter();
+    const orientadorParaExibir = usuario?.access_level === "ADMIN" ? null : orientadorPrincipal;
 
     function alternarTema() {
         setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -68,9 +69,20 @@ export default function Cabecalho({ menuRecolhido, aoAlternarMenu }: CabecalhoPr
                 </Link>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+                {orientadorParaExibir ? (
+                    <div
+                        aria-label={`Orientador associado: ${orientadorParaExibir.advisor.username}`}
+                        className="flex min-w-0 max-w-[min(42vw,18rem)] items-center gap-2 rounded-full border border-line bg-input-bg px-3 py-2 text-ink"
+                        title={`Orientador associado: ${orientadorParaExibir.advisor.username}`}
+                    >
+                        <UserRound className="shrink-0 text-accent" size={17} aria-hidden="true" />
+                        <span className="hidden shrink-0 text-xs font-semibold text-muted sm:inline">Orientador:</span>
+                        <span className="min-w-0 truncate text-sm font-semibold">{orientadorParaExibir.advisor.username}</span>
+                    </div>
+                ) : null}
                 <button
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-line bg-input-bg px-3 font-semibold text-ink transition hover:border-brand hover:bg-subtle-hover"
+                    className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-line bg-input-bg px-3 font-semibold text-ink transition hover:border-brand hover:bg-subtle-hover"
                     type="button"
                     onClick={alternarTema}
                     aria-label="Alternar tema"
@@ -81,7 +93,7 @@ export default function Cabecalho({ menuRecolhido, aoAlternarMenu }: CabecalhoPr
                     <span className="hidden sm:dark:inline">Claro</span>
                 </button>
                 <button
-                    className="inline-flex size-10 items-center justify-center rounded-full border border-line bg-input-bg text-ink transition hover:border-accent hover:text-accent"
+                    className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line bg-input-bg text-ink transition hover:border-accent hover:text-accent"
                     type="button"
                     onClick={() => void sairDaPlataforma()}
                     aria-label="Sair da plataforma"

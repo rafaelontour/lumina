@@ -9,6 +9,7 @@ import {
 } from "@/app/services/autenticacao";
 import { criarOrientacaoPrincipal, listarMeusOrientadoresAtivos } from "@/app/services/orientacao";
 import type { CredenciaisLogin, UsuarioAutenticado } from "@/app/types/Autenticacao";
+import type { CartaoOrientador } from "@/app/types/Orientacao";
 
 type EstadoAutenticacao = "verificando" | "autenticado" | "anonimo";
 export type EstadoOnboardingOrientacao = "nao_aplicavel" | "verificando" | "necessaria" | "concluida" | "erro";
@@ -16,6 +17,7 @@ export type EstadoOnboardingOrientacao = "nao_aplicavel" | "verificando" | "nece
 type ContextoAutenticacao = {
     estado: EstadoAutenticacao;
     usuario: UsuarioAutenticado | null;
+    orientadorPrincipal: CartaoOrientador | null;
     estadoOnboardingOrientacao: EstadoOnboardingOrientacao;
     erroOnboardingOrientacao: string | null;
     iniciarSessao: (credenciais: CredenciaisLogin) => Promise<Error | null>;
@@ -30,11 +32,13 @@ const contextoAutenticacao = createContext<ContextoAutenticacao | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [estado, setEstado] = useState<EstadoAutenticacao>("verificando");
     const [usuario, setUsuario] = useState<UsuarioAutenticado | null>(null);
+    const [orientadorPrincipal, setOrientadorPrincipal] = useState<CartaoOrientador | null>(null);
     const [estadoOnboardingOrientacao, setEstadoOnboardingOrientacao] = useState<EstadoOnboardingOrientacao>("verificando");
     const [erroOnboardingOrientacao, setErroOnboardingOrientacao] = useState<string | null>(null);
 
     const verificarOnboardingOrientacao = useCallback(async (usuarioAtual: UsuarioAutenticado) => {
         if ((usuarioAtual.access_level ?? "DEFAULT") !== "DEFAULT") {
+            setOrientadorPrincipal(null);
             setErroOnboardingOrientacao(null);
             setEstadoOnboardingOrientacao("nao_aplicavel");
             return;
@@ -44,12 +48,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setEstadoOnboardingOrientacao("verificando");
         const [orientadores, err] = await listarMeusOrientadoresAtivos();
         if (err) {
+            setOrientadorPrincipal(null);
             setErroOnboardingOrientacao(err.message);
             setEstadoOnboardingOrientacao("erro");
             return;
         }
 
-        setEstadoOnboardingOrientacao(orientadores.length > 0 ? "concluida" : "necessaria");
+        const principal = orientadores.find((orientador) => orientador.role_type === "MAIN_ADVISOR") ?? null;
+        setOrientadorPrincipal(principal);
+        setEstadoOnboardingOrientacao(principal ? "concluida" : "necessaria");
     }, []);
 
     const verificarSessao = useCallback(async () => {
@@ -59,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (usuarioAtual) {
             await verificarOnboardingOrientacao(usuarioAtual);
         } else {
+            setOrientadorPrincipal(null);
             setErroOnboardingOrientacao(null);
             setEstadoOnboardingOrientacao("nao_aplicavel");
         }
@@ -68,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         function tratarSessaoExpirada() {
             setUsuario(null);
+            setOrientadorPrincipal(null);
             setEstado("anonimo");
             setErroOnboardingOrientacao(null);
             setEstadoOnboardingOrientacao("nao_aplicavel");
@@ -97,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (err) return err;
 
         setUsuario(null);
+        setOrientadorPrincipal(null);
         setEstado("anonimo");
         setErroOnboardingOrientacao(null);
         setEstadoOnboardingOrientacao("nao_aplicavel");
@@ -117,10 +127,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (err) return err;
         if (!vinculo) return new Error("A API não confirmou o vínculo com o orientador.");
 
-        setErroOnboardingOrientacao(null);
-        setEstadoOnboardingOrientacao("concluida");
+        await verificarOnboardingOrientacao(usuario);
         return null;
-    }, [usuario]);
+    }, [usuario, verificarOnboardingOrientacao]);
 
     const tentarNovamenteOnboardingOrientacao = useCallback(async () => {
         if (!usuario) return;
@@ -131,6 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         () => ({
             estado,
             usuario,
+            orientadorPrincipal,
             estadoOnboardingOrientacao,
             erroOnboardingOrientacao,
             iniciarSessao,
@@ -142,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         [
             estado,
             usuario,
+            orientadorPrincipal,
             estadoOnboardingOrientacao,
             erroOnboardingOrientacao,
             iniciarSessao,
