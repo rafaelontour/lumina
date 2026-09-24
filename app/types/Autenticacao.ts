@@ -6,14 +6,6 @@ export type CredenciaisLogin = {
 export type NivelAcesso = "DEFAULT" | "ADMIN" | "ANALYST" | "AUDITOR";
 export type NivelAcessoGerenciavel = Extract<NivelAcesso, "DEFAULT" | "ADMIN">;
 
-export type DadosCadastroUsuario = {
-    username: string;
-    email: string;
-    phone_number: string;
-    password: string;
-    access_level: "DEFAULT";
-};
-
 export type FotoPerfilUsuario = {
     id: string;
     file_path: string;

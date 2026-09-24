@@ -116,6 +116,18 @@ export async function listarVinculosOrientacaoAtivos(orientadorId: string): Prom
     return [Array.isArray(vinculos) ? vinculos.filter((item) => item.status === "ACTIVE") : [], null];
 }
 
+export async function removerVinculoOrientacao(advisorshipId: string): Promise<[true | null, Error | null]> {
+    const [, err] = await executarRequisicaoProtegida(
+        () =>
+            axios.delete(montarUrlApi(`/advisorship/${encodeURIComponent(advisorshipId)}`), {
+                withCredentials: true,
+            }),
+        "Não foi possível remover este orientando."
+    );
+
+    return err ? [null, err] : [true, null];
+}
+
 export async function listarDocumentosOrientando(orientandoId: string): Promise<[DocumentoOrientando[], Error | null]> {
     const [response, err] = await executarRequisicaoProtegida(
         () =>

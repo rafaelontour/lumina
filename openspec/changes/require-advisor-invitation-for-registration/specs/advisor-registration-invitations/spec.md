@@ -1,124 +1,154 @@
 ## Purpose
 
-Permitir que orientadores autorizem de forma controlada a entrada de novos orientandos por links de convite vinculados ao destinatário e ao vínculo de orientação.
+Permitir que orientadores autorizem a entrada de novos orientandos por e-mail e ofereçam um link compartilhável para consultar, aceitar ou recusar o convite de orientação.
 
 ## ADDED Requirements
 
-### Requirement: Advisor-issued registration invitation
+### Requirement: Advisor-issued registration authorization
 
-The application SHALL allow an authenticated account with `access_level: ADMIN` to create a registration invitation by providing the intended advisee's valid email address. The invitation SHALL be associated with the authenticated advisor and that normalized email address, and the application SHALL return a shareable `/convite/<code>` registration link without sending it by email.
+The application SHALL allow an authenticated `ADMIN` advisor to authorize a valid recipient email and create a pending invitation. The same operation SHALL return an opaque invitation code, expiration metadata, and a shareable link without sending an email automatically.
 
-#### Scenario: Advisor creates an invitation
+#### Scenario: Advisor authorizes an email
 
-- **WHEN** an authenticated advisor provides a valid email address and requests an invitation
-- **THEN** the backend creates an invitation associated with that advisor and normalized email address
-- **AND** the application presents a registration link that the advisor can copy
-- **AND** the application does not send an email or share the link automatically
-
-#### Scenario: Invitation email is invalid
-
-- **WHEN** an advisor requests an invitation without a valid email address
-- **THEN** the application does not create an invitation
-- **AND** presents a readable validation message
-
-#### Scenario: Non-administrator attempts to create an invitation
-
-- **WHEN** an authenticated account without `access_level: ADMIN` attempts to create a registration invitation
-- **THEN** the backend rejects the request
-- **AND** no invitation link is issued
+- **WHEN** an authenticated advisor submits a valid recipient email
+- **THEN** the backend creates a `PENDING` invitation associated with that advisor and normalized email
+- **AND** the application presents the authorized email, expiration, and shareable invitation link
+- **AND** it does not send the link automatically
 
 #### Scenario: Advisor copies the invitation link
 
-- **WHEN** an invitation has been created and the advisor activates its copy action
-- **THEN** the application copies the complete registration link when browser support permits
-- **AND** provides readable confirmation or a selectable fallback when automatic copying is unavailable
+- **WHEN** the advisor activates the copy action
+- **THEN** the application copies the complete link when browser support permits
+- **AND** keeps a visible selectable fallback when automatic copying is unavailable
 
-### Requirement: Opaque and temporary invitation authority
+#### Scenario: Invitation request is invalid or unauthorized
 
-Each registration link SHALL carry an opaque, unguessable invitation credential. The backend SHALL define and enforce its expiration and single-use status, and the frontend MUST NOT persist the credential in browser storage.
+- **WHEN** the email is invalid or a non-administrator attempts to create an invitation
+- **THEN** no invitation is issued
+- **AND** the application presents readable feedback
 
-#### Scenario: Valid invitation is inspected
+### Requirement: Active invitation link management
 
-- **WHEN** an anonymous visitor opens a registration link whose invitation is valid and unused
-- **THEN** the backend confirms the invited email and the display-safe advisor identity needed for the registration experience
-- **AND** establishes a temporary invitation authorization that is unavailable to browser JavaScript
-- **AND** the application removes the invitation credential from the visible URL by redirecting the visitor to `/login`
+The application SHALL provide authenticated advisors with a section named “Links ativos” containing only their own pending, unexpired invitation links. The section SHALL explain that links leave the active list after they are used, and SHALL allow the issuing advisor to cancel a pending link.
 
-#### Scenario: Invitation is invalid, expired, or already used
+#### Scenario: Advisor opens active links
 
-- **WHEN** an anonymous visitor opens a registration link whose invitation cannot authorize a new account
-- **THEN** the application does not expose the account-creation form
-- **AND** explains that a new invitation link must be requested from an advisor
+- **WHEN** an authenticated advisor activates “Links ativos”
+- **THEN** the application requests invitations scoped to that advisor
+- **AND** displays only invitations whose status is `PENDING` and whose expiration is in the future
+- **AND** presents the recipient email, expiration, and a copyable link for each item
 
-#### Scenario: Browser storage is inspected
+#### Scenario: Used link leaves the active list
 
-- **WHEN** an advisor creates a link or a visitor opens one
-- **THEN** the invitation credential is absent from `localStorage`, `sessionStorage`, IndexedDB, and JavaScript-managed cookies
+- **WHEN** an invited account is created or an existing user accepts the invitation
+- **THEN** that invitation no longer appears in “Links ativos” on the next load or refresh
+- **AND** the section explains that used links are removed from the active list
 
-### Requirement: Invited arrival at login
+#### Scenario: Terminal or expired invitation is returned
 
-After accepting a valid invitation link, the application SHALL present the public login screen with an accessible invitation popup identifying the issuing advisor. The popup SHALL show the advisor's profile photo when available, use a readable avatar fallback otherwise, explain that the advisor invited the visitor, and instruct the visitor to create their account normally.
+- **WHEN** the backend returns an accepted, rejected, cancelled, or expired invitation
+- **THEN** the application excludes it from “Links ativos”
+- **AND** does not present its link as usable
 
-#### Scenario: Visitor arrives through a valid invitation
+#### Scenario: Advisor deletes an active link
 
-- **WHEN** an anonymous visitor is redirected to `/login` after opening a valid unused invitation link
-- **THEN** the application opens an invitation popup above the login screen
-- **AND** shows the issuing advisor's name and profile photo
-- **AND** uses readable initials or an equivalent avatar fallback when the advisor has no usable photo
-- **AND** states that the identified advisor invited the visitor to Lumina
-- **AND** explains that the visitor only needs to create their account normally
+- **WHEN** the issuing advisor confirms deletion of a pending invitation link
+- **THEN** the application requests cancellation through the backend
+- **AND** removes the link from “Links ativos” after successful confirmation
+- **AND** the cancelled link can no longer authorize registration or acceptance
 
-#### Scenario: Visitor acknowledges the invitation
+#### Scenario: Active links cannot be loaded or deleted
 
-- **WHEN** the visitor activates the popup action “Entendi”
-- **THEN** the application closes the popup
-- **AND** keeps the visitor on the login screen
-- **AND** preserves the valid invitation authorization for the registration action
+- **WHEN** listing or cancellation fails
+- **THEN** the application presents normalized readable feedback
+- **AND** does not remove an item locally unless the backend confirms cancellation
 
-#### Scenario: Visitor chooses to create the invited account
+### Requirement: Public invitation inspection
 
-- **WHEN** the visitor follows the create-account action after acknowledging a valid invitation
-- **THEN** the application opens `/cadastro` with the same invitation authorization
-- **AND** does not require the visitor to paste or re-enter the invitation code
+The application SHALL use the invitation code returned by the backend to inspect a shared invitation and SHALL distinguish valid, expired, consumed, rejected, cancelled, and unknown invitations without treating that code as an authenticated session token.
 
-#### Scenario: Advisor photo cannot be displayed
+#### Scenario: Recipient opens a valid invitation link
 
-- **WHEN** the issuing advisor has no profile photo or the invitation-authorized photo cannot be loaded
-- **THEN** the popup displays a readable avatar fallback derived from the advisor's name
-- **AND** keeps the advisor name and invitation instructions available
+- **WHEN** an anonymous visitor opens a link containing a valid pending invitation code
+- **THEN** the application loads the invitation through the public backend operation
+- **AND** presents the advisor name, invited email, expiration, and optional project and topic
+- **AND** uses `user_exists` to choose between registration and authenticated acceptance
 
-#### Scenario: Visitor opens an unusable invitation link
+#### Scenario: Recipient opens an unusable invitation
 
-- **WHEN** an invitation link is unknown, malformed, expired, or already consumed
-- **THEN** the application does not disclose an advisor identity or profile photo
-- **AND** presents readable guidance to request a new link from an advisor
+- **WHEN** the invitation is expired, consumed, rejected, cancelled, malformed, or unknown
+- **THEN** the application blocks registration and acceptance through that invitation
+- **AND** presents generic guidance to request a new authorization from an advisor
 
-### Requirement: Atomic invited-account activation
+#### Scenario: Invitation code is handled by the browser
 
-The backend SHALL consume a valid invitation, create one `DEFAULT` account with the invited email, and create an active `MAIN_ADVISOR` relationship from the invitation's issuing advisor to the new account as one atomic operation. A failed operation MUST leave neither a consumed invitation nor a partially created account or relationship.
+- **WHEN** the visitor follows, accepts, or rejects an invitation
+- **THEN** the code is used only in the URL and requests required for that flow
+- **AND** it is not persisted in `localStorage`, `sessionStorage`, IndexedDB, or JavaScript-managed cookies
 
-#### Scenario: Invited account is created
+### Requirement: Registration through a shared invitation
 
-- **WHEN** a visitor submits valid registration data with a valid unused invitation and the invited email
-- **THEN** the backend creates the `DEFAULT` account
-- **AND** creates its active `MAIN_ADVISOR` relationship with the invitation's issuing advisor
-- **AND** marks the invitation as consumed
+The application SHALL allow a recipient without an existing account to create their own `DEFAULT` account and accept the invitation in one backend operation using the shared invitation code.
 
-#### Scenario: Account or relationship creation fails
+#### Scenario: New user accepts by creating an account
 
-- **WHEN** any part of invited account creation cannot be completed
-- **THEN** the backend does not leave a partial account or relationship
-- **AND** does not consume the invitation
-- **AND** returns a readable registration error
+- **WHEN** a valid invitation reports `user_exists: false` and the recipient submits valid username and telephone
+- **THEN** the backend creates the account using the invitation-bound email
+- **AND** accepts the invitation and creates its academic relationship atomically
+- **AND** marks the account as requiring first-password setup
+- **AND** establishes the authenticated session without exposing the returned access token to browser-accessible storage
 
-#### Scenario: Consumed invitation is submitted again
+#### Scenario: Invited registration restores the relationship
 
-- **WHEN** any visitor attempts to create another account with an invitation that has already been consumed
-- **THEN** the backend rejects the request
-- **AND** creates neither an account nor an advisory relationship
+- **WHEN** the newly registered user enters protected content
+- **THEN** the application first requires completion of the mandatory first-password setup
+- **AND** the authenticated startup check then finds the active `MAIN_ADVISOR` relationship created from the invitation
+- **AND** the application does not present the advisor-selection modal
 
-#### Scenario: Submitted email differs from invitation
+#### Scenario: Invited registration fails
 
-- **WHEN** registration data contains an email that does not normalize to the invitation's authorized email
-- **THEN** the backend rejects the request
-- **AND** does not consume the invitation or create an account
+- **WHEN** account creation or invitation consumption fails
+- **THEN** no partial account or relationship remains
+- **AND** the application preserves only non-sensitive form values and presents a normalized error
+
+### Requirement: Registration through an authorized email
+
+The application SHALL allow an anonymous visitor to submit an email on `/cadastro` and, when the backend confirms one usable pending authorization for that normalized email, create the account and relationship without requiring the visitor to possess the shared link.
+
+#### Scenario: Visitor enters an authorized email
+
+- **WHEN** an anonymous visitor provides an email with a usable pending invitation
+- **THEN** the backend confirms that authorization without disclosing unrelated invitations
+- **AND** the application allows the visitor to complete registration for that immutable email
+
+#### Scenario: Visitor enters an unauthorized email
+
+- **WHEN** no usable pending invitation exists for the submitted email
+- **THEN** the application does not expose an enabled account-creation form
+- **AND** explains that the visitor must be authorized by an advisor or use a received link
+
+### Requirement: Existing-user invitation acceptance
+
+The application SHALL direct a recipient whose invited email already has an account to sign in and SHALL accept the invitation only when the authenticated account email matches the invited email.
+
+#### Scenario: Existing user signs in and accepts
+
+- **WHEN** a valid invitation reports `user_exists: true` and the matching user authenticates
+- **THEN** the application submits the invitation code to the authenticated acceptance operation
+- **AND** presents confirmation after the relationship is created
+
+#### Scenario: Authenticated email differs
+
+- **WHEN** the authenticated user's email differs from the invited email
+- **THEN** the backend rejects acceptance
+- **AND** no relationship is created
+
+### Requirement: Invitation refusal
+
+The application SHALL allow the recipient to reject a valid pending invitation using its invitation code.
+
+#### Scenario: Recipient rejects invitation
+
+- **WHEN** the recipient confirms the refusal action
+- **THEN** the backend changes the invitation to `REJECTED`
+- **AND** the invitation can no longer create or associate an account

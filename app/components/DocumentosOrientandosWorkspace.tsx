@@ -11,16 +11,23 @@ import {
     FileText,
     FolderKanban,
     Loader2,
+    Link2,
     MessageSquare,
     RefreshCw,
     Search,
+    Trash2,
+    UserPlus,
     UserRound,
     UsersRound,
     X,
 } from "lucide-react";
 import { useReducedMotion } from "motion/react";
+import { toast } from "sonner";
 
 import AvatarUsuario from "@/app/components/AvatarUsuario";
+import ConfirmarRemocaoOrientandoDialog from "@/app/components/ConfirmarRemocaoOrientandoDialog";
+import ConviteOrientandoDialog from "@/app/components/ConviteOrientandoDialog";
+import LinksAtivosDialog from "@/app/components/LinksAtivosDialog";
 import ResultadoAnaliseTipificacao, {
     calcularNotaMediaRelease,
     classeNotaMedia,
@@ -34,7 +41,7 @@ import {
     selecionarReleaseAnalisado,
 } from "@/app/services/documento";
 import { baixarArquivoPdfRelease, fonteConversaAvulsaOiac, listarMensagensDocumento } from "@/app/services/oiac";
-import { listarDocumentosOrientando, listarMeusOrientandos, listarVinculosOrientacaoAtivos } from "@/app/services/orientacao";
+import { listarDocumentosOrientando, listarMeusOrientandos, listarVinculosOrientacaoAtivos, removerVinculoOrientacao } from "@/app/services/orientacao";
 import type { DocumentoOrientando, GrupoDocumento, ProjetoBackend, ReleaseExterno } from "@/app/types/Documento";
 import type { MensagemDocumento } from "@/app/types/Oiac";
 import type { CartaoOrientando } from "@/app/types/Orientacao";
@@ -185,6 +192,12 @@ export default function DocumentosOrientandosWorkspace() {
     const [avisoVinculos, setAvisoVinculos] = useState("");
     const [falhas, setFalhas] = useState<FalhaOrientando[]>([]);
     const [perfilSelecionado, setPerfilSelecionado] = useState<MonitoramentoOrientando | null>(null);
+    const [conviteAberto, setConviteAberto] = useState(false);
+    const [linksAtivosAbertos, setLinksAtivosAbertos] = useState(false);
+    const [buscaOrientando, setBuscaOrientando] = useState("");
+    const [orientandoParaRemover, setOrientandoParaRemover] = useState<MonitoramentoOrientando | null>(null);
+    const [removendoVinculoId, setRemovendoVinculoId] = useState<string | null>(null);
+    const [erroRemocao, setErroRemocao] = useState("");
     const monitoramentoAtual = useRef<MonitoramentoOrientando[]>([]);
 
     const carregarMonitoramento = useCallback(async () => {
@@ -258,36 +271,115 @@ export default function DocumentosOrientandosWorkspace() {
         () => monitoramento.reduce((total, item) => total + item.documentos.length, 0),
         [monitoramento]
     );
+    const monitoramentoVisivel = useMemo(() => {
+        const termo = normalizarTexto(buscaOrientando.trim());
+        if (!termo) return monitoramento;
+
+        return monitoramento.filter(({ orientando }) =>
+            normalizarTexto(`${orientando.advisee.username} ${orientando.advisee.email}`).includes(termo)
+        );
+    }, [buscaOrientando, monitoramento]);
     const fecharPerfil = useCallback(() => setPerfilSelecionado(null), []);
+    const fecharConvite = useCallback(() => setConviteAberto(false), []);
+    const fecharLinksAtivos = useCallback(() => setLinksAtivosAbertos(false), []);
+    const fecharRemocao = useCallback(() => {
+        setOrientandoParaRemover(null);
+        setErroRemocao("");
+    }, []);
 
     if (usuario?.access_level !== "ADMIN") return null;
 
-    const semDocumentos = !carregando && !erro && monitoramento.length > 0 && totalDocumentos === 0;
+    const semResultadosBusca = !carregando && monitoramento.length > 0 && monitoramentoVisivel.length === 0;
+
+    function abrirRemocao(item: MonitoramentoOrientando) {
+        if (removendoVinculoId) return;
+        setErroRemocao("");
+        setOrientandoParaRemover(item);
+    }
+
+    async function removerOrientando() {
+        if (removendoVinculoId || !orientandoParaRemover) return;
+
+        const { advisorship_id: vinculoId, advisee } = orientandoParaRemover.orientando;
+
+        setRemovendoVinculoId(vinculoId);
+        setErroRemocao("");
+        const [, err] = await removerVinculoOrientacao(vinculoId);
+        if (err) {
+            setErroRemocao(err.message);
+            setRemovendoVinculoId(null);
+            return;
+        }
+
+        const proximos = monitoramentoAtual.current.filter(
+            ({ orientando }) => orientando.advisorship_id !== vinculoId
+        );
+        monitoramentoAtual.current = proximos;
+        setMonitoramento(proximos);
+        setPerfilSelecionado((atual) =>
+            atual?.orientando.advisorship_id === vinculoId ? null : atual
+        );
+        setFalhas((atuais) => atuais.filter((falha) => falha.orientandoId !== advisee.id));
+        setRemovendoVinculoId(null);
+        setOrientandoParaRemover(null);
+        toast.success(`${advisee.username} foi removido dos seus orientandos. A conta e os documentos foram preservados.`);
+    }
 
     return (
         <section className="grid gap-5 p-5 text-ink md:p-7">
-            <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-5">
+            <header className="sticky top-0 z-30 -mx-5 -mt-5 flex flex-wrap items-start justify-between gap-4 border-b border-line bg-background px-5 pb-5 pt-5 md:-mx-7 md:-mt-7 md:px-7 md:pt-7">
                 <div>
                     <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-accent">Acompanhamento acadêmico</span>
                     <h1 className="mt-2 font-display text-3xl font-bold">Meus orientandos</h1>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-                        Consulte o andamento dos trabalhos vinculados a você. Esta área é apenas para acompanhamento.
+                        Consulte o andamento dos trabalhos e gerencie seus vínculos de orientação.
                     </p>
                 </div>
-                <button
-                    className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-input-bg px-3 font-semibold transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
-                    type="button"
-                    disabled={carregando || atualizando}
-                    onClick={() => void carregarMonitoramento()}
-                >
-                    <RefreshCw className={carregando || atualizando ? "animate-spin" : ""} size={17} />
-                    Atualizar
-                </button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                    <button
+                        className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-input-bg px-3 font-display font-semibold transition hover:border-brand hover:bg-subtle-hover"
+                        type="button"
+                        onClick={() => setLinksAtivosAbertos(true)}
+                    >
+                        <Link2 size={17} />
+                        Links ativos
+                    </button>
+                    <button
+                        className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-3 font-display font-semibold text-background transition hover:bg-brand-strong"
+                        type="button"
+                        onClick={() => setConviteAberto(true)}
+                    >
+                        <UserPlus size={17} />
+                        Convidar orientando
+                    </button>
+                    <button
+                        className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-input-bg px-3 font-semibold transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
+                        type="button"
+                        disabled={carregando || atualizando}
+                        onClick={() => void carregarMonitoramento()}
+                    >
+                        <RefreshCw className={carregando || atualizando ? "animate-spin" : ""} size={17} />
+                        Atualizar
+                    </button>
+                </div>
             </header>
 
-            <div className="grid gap-3 sm:grid-cols-2" aria-label="Resumo do acompanhamento">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,0.65fr)_minmax(0,0.65fr)_minmax(18rem,1.7fr)]" aria-label="Resumo e pesquisa do acompanhamento">
                 <Resumo valor={monitoramento.length} rotulo="Orientandos ativos" />
                 <Resumo valor={totalDocumentos} rotulo="Total de documentos" animar />
+                <label className="grid min-w-0 gap-1.5 rounded-lg border border-line bg-panel px-4 py-3 sm:col-span-2 lg:col-span-1">
+                    <span className="text-xs font-semibold text-muted">Pesquisar orientando</span>
+                    <span className="flex min-w-0 items-center gap-2">
+                        <Search className="shrink-0 text-muted" size={18} aria-hidden="true" />
+                        <input
+                            className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-muted"
+                            type="search"
+                            value={buscaOrientando}
+                            onChange={(evento) => setBuscaOrientando(evento.target.value)}
+                            placeholder="Busque por nome ou e-mail"
+                        />
+                    </span>
+                </label>
             </div>
 
             {erro && monitoramento.length === 0 ? (
@@ -296,20 +388,27 @@ export default function DocumentosOrientandosWorkspace() {
                 <Estado icone={<Loader2 className="animate-spin" size={36} />} titulo="Carregando documentos" descricao="Buscando os documentos dos seus orientandos." />
             ) : monitoramento.length === 0 ? (
                 <Estado icone={<UsersRound size={36} />} titulo="Nenhum orientando ativo" descricao="Quando houver vínculos ativos, os documentos enviados pelos orientandos aparecerão aqui." />
-            ) : semDocumentos ? (
-                <Estado icone={<UsersRound size={36} />} titulo="Nenhum documento enviado" descricao="Seus orientandos ativos ainda não possuem documentos retornados pela plataforma." />
+            ) : semResultadosBusca ? (
+                <Estado icone={<Search size={36} />} titulo="Nenhum orientando encontrado" descricao="Tente buscar por outro nome ou e-mail." />
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {monitoramento.map((item) => (
+                    {monitoramentoVisivel.map((item) => (
                         <CartaoOrientandoLista
                             key={item.orientando.advisee.id}
                             orientando={item.orientando}
                             vinculoCriadoEm={item.vinculoCriadoEm}
+                            removendo={removendoVinculoId === item.orientando.advisorship_id}
+                            remocaoBloqueada={Boolean(removendoVinculoId)}
                             aoVerPerfil={() => setPerfilSelecionado(item)}
+                            aoRemover={() => abrirRemocao(item)}
                         />
                     ))}
                 </div>
             )}
+
+            {!carregando && !erro && monitoramento.length > 0 && totalDocumentos === 0 ? (
+                <Aviso descricao="Seus orientandos ativos ainda não possuem documentos retornados pela plataforma." />
+            ) : null}
 
             {erro && monitoramento.length > 0 ? (
                 <Aviso descricao={`${erro} Os dados exibidos anteriormente foram mantidos.`} />
@@ -321,6 +420,17 @@ export default function DocumentosOrientandosWorkspace() {
             })}
 
             {perfilSelecionado ? <ModalPerfilOrientando monitoramento={perfilSelecionado} aoFechar={fecharPerfil} /> : null}
+            {conviteAberto ? <ConviteOrientandoDialog aoFechar={fecharConvite} /> : null}
+            {linksAtivosAbertos ? <LinksAtivosDialog orientadorId={usuario.id} aoFechar={fecharLinksAtivos} /> : null}
+            {orientandoParaRemover ? (
+                <ConfirmarRemocaoOrientandoDialog
+                    orientando={orientandoParaRemover.orientando.advisee}
+                    removendo={removendoVinculoId === orientandoParaRemover.orientando.advisorship_id}
+                    erro={erroRemocao}
+                    aoConfirmar={() => void removerOrientando()}
+                    aoFechar={fecharRemocao}
+                />
+            ) : null}
         </section>
     );
 }
@@ -328,35 +438,51 @@ export default function DocumentosOrientandosWorkspace() {
 function CartaoOrientandoLista({
     orientando,
     vinculoCriadoEm,
+    removendo,
+    remocaoBloqueada,
     aoVerPerfil,
+    aoRemover,
 }: {
     orientando: CartaoOrientando;
     vinculoCriadoEm: string | null;
+    removendo: boolean;
+    remocaoBloqueada: boolean;
     aoVerPerfil: () => void;
+    aoRemover: () => void;
 }) {
     return (
-        <article className="min-w-0 overflow-hidden rounded-xl border border-line bg-panel shadow-[0_18px_44px_-28px_var(--chrome-shadow)]">
-            <header className="flex items-center justify-between gap-4 p-4">
-                <div className="flex min-w-0 items-center gap-3">
-                    <AvatarUsuario className="size-10" usuario={orientando.advisee} />
-                    <div className="min-w-0">
-                        <h2 className="truncate font-display text-lg font-bold" title={orientando.advisee.username}>
-                            {orientando.advisee.username}
-                        </h2>
-                        <p className="mt-0.5 truncate text-xs text-muted" title={orientando.advisee.email}>
-                            {orientando.advisee.email}
-                        </p>
-                        <p className="mt-0.5 truncate text-xs text-muted">{formatarDataVinculo(vinculoCriadoEm)}</p>
-                    </div>
+        <article aria-busy={removendo} className="min-w-0 overflow-hidden rounded-xl border border-line bg-panel p-4 shadow-[0_18px_44px_-28px_var(--chrome-shadow)]">
+            <div className="flex min-w-0 items-center gap-3">
+                <AvatarUsuario className="size-10" usuario={orientando.advisee} />
+                <div className="min-w-0">
+                    <h2 className="truncate font-display text-lg font-bold" title={orientando.advisee.username}>
+                        {orientando.advisee.username}
+                    </h2>
+                    <p className="mt-0.5 truncate text-xs text-muted" title={orientando.advisee.email}>
+                        {orientando.advisee.email}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-muted">{formatarDataVinculo(vinculoCriadoEm)}</p>
                 </div>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 <button
-                    className="inline-flex h-9 shrink-0 items-center rounded-lg border border-line bg-input-bg px-3 font-display text-sm font-semibold transition hover:border-brand hover:bg-subtle-hover"
+                    className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-input-bg px-3 font-display text-sm font-semibold transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
                     type="button"
+                    disabled={removendo}
                     onClick={aoVerPerfil}
                 >
                     Ver perfil
                 </button>
-            </header>
+                <button
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-accent/35 px-3 font-display text-sm font-semibold text-accent transition hover:bg-accent/8 disabled:cursor-not-allowed disabled:opacity-55"
+                    type="button"
+                    disabled={remocaoBloqueada}
+                    onClick={aoRemover}
+                >
+                    {removendo ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                    {removendo ? "Removendo…" : "Remover orientando"}
+                </button>
+            </div>
         </article>
     );
 }

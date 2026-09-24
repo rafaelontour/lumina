@@ -2,21 +2,21 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, UserPlus, UserRound, Loader2, KeyRound } from "lucide-react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, KeyRound, Loader2, Mail, Phone, UserPlus, UserRound } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 
 import GoogleGeminiEffect from "@/app/components/GoogleGeminiEffect";
 import { useAuth } from "@/app/data/provider/AuthProvider";
-import { cadastrarUsuarioPadrao } from "@/app/services/autenticacao";
+import { cadastrarComConvite, consultarConvite } from "@/app/services/convite";
+import type { ConvitePublico } from "@/app/types/Convite";
 import logoBranco from "@/public/lumina_branco.png";
 import logoLaranja from "@/public/lumina_laranja.png";
 
 type DadosFormulario = {
     username: string;
-    email: string;
     phoneNumber: string;
     password: string;
     confirmation: string;
@@ -24,17 +24,36 @@ type DadosFormulario = {
 
 const dadosIniciais: DadosFormulario = {
     username: "",
-    email: "",
     phoneNumber: "",
     password: "",
     confirmation: "",
 };
 
+type EstadoConviteCadastro =
+    | { status: "sem-codigo" }
+    | { status: "carregando"; codigo: string }
+    | { status: "pronto"; codigo: string; convite: ConvitePublico }
+    | { status: "bloqueado"; mensagem: string };
+
 export default function CadastroPage() {
+    return (
+        <Suspense fallback={<TelaCarregando texto="Preparando o cadastro…" />}>
+            <ConteudoCadastro />
+        </Suspense>
+    );
+}
+
+function ConteudoCadastro() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const codigoConvite = searchParams.get("convite")?.trim() ?? "";
     const reduzirMovimento = useReducedMotion();
-    const { estado } = useAuth();
+    const { estado, iniciarSessao } = useAuth();
+    const [estadoConvite, setEstadoConvite] = useState<EstadoConviteCadastro>(
+        codigoConvite ? { status: "carregando", codigo: codigoConvite } : { status: "sem-codigo" }
+    );
     const [dados, setDados] = useState<DadosFormulario>(dadosIniciais);
+    const [emailDireto, setEmailDireto] = useState("");
     const [erro, setErro] = useState("");
     const [enviando, setEnviando] = useState(false);
 
@@ -42,28 +61,45 @@ export default function CadastroPage() {
         if (estado === "autenticado") router.replace("/");
     }, [estado, router]);
 
+    useEffect(() => {
+        const codigo = codigoConvite;
+        if (!codigo) return;
+        let ativo = true;
+        void consultarConvite(codigo).then(([convite, err]) => {
+            if (!ativo) return;
+            if (err || !convite || !convite.is_valid || convite.is_expired || convite.status !== "PENDING") {
+                setEstadoConvite({ status: "bloqueado", mensagem: "Este convite não está disponível. Solicite uma nova autorização ao seu orientador." });
+                return;
+            }
+            if (convite.user_exists) {
+                setEstadoConvite({ status: "bloqueado", mensagem: "Este e-mail já possui conta. Entre na plataforma para aceitar o convite." });
+                return;
+            }
+            setEstadoConvite({ status: "pronto", codigo, convite });
+        });
+
+        return () => {
+            ativo = false;
+        };
+    }, [codigoConvite]);
+
     function atualizarCampo(campo: keyof DadosFormulario, valor: string) {
         setDados((dadosAtuais) => ({ ...dadosAtuais, [campo]: valor }));
     }
 
     function validarFormulario() {
-        if (!dados.username.trim() || !dados.email.trim() || !dados.phoneNumber.trim() || !dados.password || !dados.confirmation) {
+        if (!dados.username.trim() || !dados.phoneNumber.trim() || !dados.password || !dados.confirmation) {
             return "Preencha todos os campos para criar sua conta.";
         }
-
-        if (!/^\S+@\S+\.\S+$/.test(dados.email.trim())) {
-            return "Informe um e-mail válido.";
-        }
-
         if (dados.password !== dados.confirmation) {
             return "A confirmação de senha deve ser igual à senha informada.";
         }
-
         return "";
     }
 
-    async function enviarFormulario(event: FormEvent<HTMLFormElement>) {
-        event.preventDefault();
+    async function enviarFormulario(evento: FormEvent<HTMLFormElement>) {
+        evento.preventDefault();
+        if (estadoConvite.status !== "pronto") return;
         const erroValidacao = validarFormulario();
         if (erroValidacao) {
             setErro(erroValidacao);
@@ -72,130 +108,139 @@ export default function CadastroPage() {
 
         setEnviando(true);
         setErro("");
-        const [, err] = await cadastrarUsuarioPadrao({
-            username: dados.username.trim(),
-            email: dados.email.trim(),
+        const username = dados.username.trim();
+        const email = estadoConvite.convite.email.trim();
+        const password = dados.password;
+        const [, err] = await cadastrarComConvite(estadoConvite.codigo, {
+            username,
             phone_number: dados.phoneNumber.trim(),
-            password: dados.password,
+            password,
         });
-        setEnviando(false);
-        setDados((dadosAtuais) => ({ ...dadosAtuais, password: "", confirmation: "" }));
 
         if (err) {
+            setDados((atuais) => ({ ...atuais, password: "", confirmation: "" }));
+            setEnviando(false);
             setErro(err.message);
             return;
         }
 
-        toast.success("Conta criada com sucesso. Entre para escolher seu orientador.");
-        router.replace("/login");
+        const erroSessao = await iniciarSessao({ username: email, password });
+        setDados((atuais) => ({ ...atuais, password: "", confirmation: "" }));
+        setEnviando(false);
+        if (erroSessao) {
+            setErro("Sua conta foi criada, mas não foi possível iniciar a sessão automaticamente. Entre com as credenciais que acabou de definir.");
+            return;
+        }
+
+        toast.success("Conta criada e convite aceito com sucesso.");
+        router.replace("/");
     }
 
-    if (estado === "verificando") {
-        return (
-            <main className="grid min-h-dvh place-items-center bg-background px-6 text-center text-muted">
-                <div className="grid justify-items-center gap-3">
-                    <Loader2 className="animate-spin text-brand" size={28} />
-                    <span className="text-sm font-semibold">Verificando sua sessão…</span>
-                </div>
-            </main>
-        );
+    function verificarEmailAutorizado(evento: FormEvent<HTMLFormElement>) {
+        evento.preventDefault();
+        if (!/^\S+@\S+\.\S+$/.test(emailDireto.trim())) {
+            setErro("Informe um e-mail válido.");
+            return;
+        }
+        setErro("A validação direta pelo e-mail ainda não está disponível no backend. Se você recebeu um link, abra-o para concluir o cadastro.");
+    }
+
+    if (estado === "verificando" || estadoConvite.status === "carregando") {
+        return <TelaCarregando texto={estado === "verificando" ? "Verificando sua sessão…" : "Validando autorização de cadastro…"} />;
     }
 
     return (
         <main className="grid min-h-dvh bg-background lg:grid-cols-2">
             <section className="relative hidden overflow-hidden bg-[#0a6974] px-12 py-14 text-white lg:flex lg:flex-col lg:justify-between">
                 <GoogleGeminiEffect />
-                <div className="relative z-10 flex items-center gap-3">
-                    <Image src={logoBranco} width={174} height={44} alt="Lumina" priority className="h-auto w-38" />
-                    <span className="h-7 w-px bg-white/30" />
-                    <span className="font-display text-base font-semibold tracking-wide text-white/80">Revisão científica</span>
+                <Image src={logoBranco} width={174} height={44} alt="Lumina" priority className="relative z-10 h-auto w-38" />
+                <div className="relative z-10 max-w-xl">
+                    <p className="font-display text-5xl font-bold leading-tight xl:text-6xl">Comece seu trabalho já conectado ao seu orientador.</p>
+                    <p className="mt-6 max-w-lg text-xl leading-8 text-white/76">Sua autorização cria a conta e o vínculo acadêmico no mesmo passo.</p>
                 </div>
-
-                <motion.div
-                    className="relative z-10 max-w-xl"
-                    initial={reduzirMovimento ? false : { opacity: 0, y: 28 }}
-                    animate={reduzirMovimento ? undefined : { opacity: 1, y: 0 }}
-                    transition={{ duration: 0.72, ease: [0.22, 1, 0.36, 1] }}
-                >
-                    <motion.div
-                        className="mb-8 size-16 rounded-2xl border border-white/25 bg-white/10"
-                        animate={reduzirMovimento ? undefined : { y: [0, -10, 0], rotate: [0, 3, 0] }}
-                        transition={{ duration: 3.8, ease: "easeInOut", repeat: Infinity }}
-                    />
-                    <p className="font-display text-5xl font-bold leading-tight xl:text-6xl">
-                        Comece a revisar seu trabalho com mais clareza.
-                    </p>
-                    <p className="mt-6 max-w-lg text-xl leading-8 text-white/76">
-                        Crie uma conta de estudante e, no primeiro acesso, selecione seu orientador para usar a plataforma.
-                    </p>
-                </motion.div>
-
                 <p className="relative z-10 text-base text-white/60">Lumina · Assistente de revisão científica</p>
             </section>
 
-            <section className="grid min-h-dvh place-items-center px-6 py-12 sm:px-10 lg:px-16">
+            <section className="grid min-h-dvh place-items-center overflow-y-auto px-6 py-12 sm:px-10 lg:px-16">
                 <motion.div
                     className="w-full max-w-md"
                     initial={reduzirMovimento ? false : { opacity: 0, x: 24 }}
                     animate={reduzirMovimento ? undefined : { opacity: 1, x: 0 }}
-                    transition={{ duration: 0.62, ease: [0.22, 1, 0.36, 1], delay: reduzirMovimento ? 0 : 0.12 }}
+                    transition={{ duration: 0.62, ease: [0.22, 1, 0.36, 1] }}
                 >
                     <div className="lg:hidden">
                         <Image src={logoLaranja} width={174} height={44} alt="Lumina" priority className="h-auto w-34 dark:hidden" />
                         <Image src={logoBranco} width={174} height={44} alt="Lumina" priority className="hidden h-auto w-34 dark:block" />
-                        <p className="mt-7 text-base font-bold uppercase tracking-[0.18em] text-accent">Cadastro de usuário</p>
                     </div>
-                    <span className="hidden text-base font-bold uppercase tracking-[0.18em] text-accent lg:block">Cadastro de usuário</span>
-                    <h1 className="mt-3 font-display text-4xl font-bold tracking-tight text-ink sm:text-5xl">Crie sua conta</h1>
-                    <p className="mt-4 text-lg leading-7 text-muted">O cadastro cria uma conta de usuário padrão. Depois, escolha seu orientador no primeiro acesso.</p>
+                    <span className="mt-7 block text-base font-bold uppercase tracking-[0.18em] text-accent lg:mt-0">Cadastro de usuário</span>
 
-                    <form className="mt-8 grid gap-4" onSubmit={(event) => void enviarFormulario(event)}>
-                        <CampoCadastro icone={<UserRound size={18} aria-hidden="true" />} label="Usuário">
-                            <input className="campo-cadastro" type="text" name="username" autoComplete="username" value={dados.username} onChange={(event) => atualizarCampo("username", event.target.value)} placeholder="Como deseja ser identificado" disabled={enviando} />
-                        </CampoCadastro>
-                        <CampoCadastro icone={<Mail size={18} aria-hidden="true" />} label="E-mail">
-                            <input className="campo-cadastro" type="email" name="email" autoComplete="email" value={dados.email} onChange={(event) => atualizarCampo("email", event.target.value)} placeholder="seu.email@exemplo.com" disabled={enviando} />
-                        </CampoCadastro>
-                        <CampoCadastro icone={<Phone size={18} aria-hidden="true" />} label="Telefone">
-                            <input className="campo-cadastro" type="tel" name="phone" autoComplete="tel" value={dados.phoneNumber} onChange={(event) => atualizarCampo("phoneNumber", event.target.value)} placeholder="(00) 00000-0000" disabled={enviando} />
-                        </CampoCadastro>
-                        <CampoCadastro icone={<KeyRound size={18} aria-hidden="true" />} label="Senha">
-                            <input className="campo-cadastro" type="password" name="new-password" autoComplete="new-password" value={dados.password} onChange={(event) => atualizarCampo("password", event.target.value)} placeholder="Crie uma senha" disabled={enviando} />
-                        </CampoCadastro>
-                        <CampoCadastro icone={<KeyRound size={18} aria-hidden="true" />} label="Confirme sua senha">
-                            <input className="campo-cadastro" type="password" name="password-confirmation" autoComplete="new-password" value={dados.confirmation} onChange={(event) => atualizarCampo("confirmation", event.target.value)} placeholder="Repita sua senha" disabled={enviando} />
-                        </CampoCadastro>
+                    {estadoConvite.status === "pronto" ? (
+                        <>
+                            <h1 className="mt-3 font-display text-4xl font-bold tracking-tight sm:text-5xl">Crie sua conta</h1>
+                            <p className="mt-4 text-lg leading-7 text-muted">Seu vínculo com <strong className="text-ink">{estadoConvite.convite.inviter_name}</strong> será criado automaticamente.</p>
 
-                        {erro ? <p className="rounded-lg border border-accent/40 bg-accent/8 px-3 py-2.5 text-base font-medium text-accent" role="alert">{erro}</p> : null}
+                            <form className="mt-8 grid gap-4" onSubmit={(evento) => void enviarFormulario(evento)}>
+                                <CampoCadastro icone={<UserRound size={18} />} label="Usuário">
+                                    <input className="campo-cadastro" type="text" autoComplete="username" value={dados.username} onChange={(evento) => atualizarCampo("username", evento.target.value)} placeholder="Como deseja ser identificado" disabled={enviando} />
+                                </CampoCadastro>
+                                <CampoCadastro icone={<Mail size={18} />} label="E-mail autorizado">
+                                    <input className="campo-cadastro cursor-not-allowed opacity-80" type="email" value={estadoConvite.convite.email} readOnly aria-readonly="true" />
+                                </CampoCadastro>
+                                <CampoCadastro icone={<Phone size={18} />} label="Telefone">
+                                    <input className="campo-cadastro" type="tel" autoComplete="tel" value={dados.phoneNumber} onChange={(evento) => atualizarCampo("phoneNumber", evento.target.value)} placeholder="(00) 00000-0000" disabled={enviando} />
+                                </CampoCadastro>
+                                <CampoCadastro icone={<KeyRound size={18} />} label="Senha">
+                                    <input className="campo-cadastro" type="password" autoComplete="new-password" value={dados.password} onChange={(evento) => atualizarCampo("password", evento.target.value)} placeholder="Crie uma senha" disabled={enviando} />
+                                </CampoCadastro>
+                                <CampoCadastro icone={<KeyRound size={18} />} label="Confirme sua senha">
+                                    <input className="campo-cadastro" type="password" autoComplete="new-password" value={dados.confirmation} onChange={(evento) => atualizarCampo("confirmation", evento.target.value)} placeholder="Repita sua senha" disabled={enviando} />
+                                </CampoCadastro>
 
-                        <button className="mt-1 inline-flex h-13 items-center justify-center gap-2 rounded-lg bg-brand px-5 font-display text-lg font-semibold text-background transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={enviando}>
-                            {enviando ? <Loader2 className="animate-spin" size={19} /> : <UserPlus size={19} />}
-                            {enviando ? "Criando conta…" : "Criar conta"}
-                        </button>
-                    </form>
+                                {erro ? <MensagemErro mensagem={erro} /> : null}
+                                <button className="mt-1 inline-flex h-13 items-center justify-center gap-2 rounded-lg bg-brand px-5 font-display text-lg font-semibold text-background transition hover:bg-brand-strong disabled:opacity-60" type="submit" disabled={enviando}>
+                                    {enviando ? <Loader2 className="animate-spin" size={19} /> : <UserPlus size={19} />}
+                                    {enviando ? "Criando conta…" : "Criar conta e aceitar convite"}
+                                </button>
+                            </form>
+                        </>
+                    ) : estadoConvite.status === "sem-codigo" ? (
+                        <>
+                            <h1 className="mt-3 font-display text-4xl font-bold tracking-tight sm:text-5xl">Confirme sua autorização</h1>
+                            <p className="mt-4 text-lg leading-7 text-muted">Informe o e-mail previamente autorizado pelo seu orientador.</p>
+                            <form className="mt-8 grid gap-4" onSubmit={verificarEmailAutorizado}>
+                                <CampoCadastro icone={<Mail size={18} />} label="E-mail autorizado">
+                                    <input className="campo-cadastro" type="email" autoComplete="email" value={emailDireto} onChange={(evento) => setEmailDireto(evento.target.value)} placeholder="seu.email@exemplo.com" />
+                                </CampoCadastro>
+                                {erro ? <MensagemErro mensagem={erro} /> : null}
+                                <button className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-brand px-5 font-display font-semibold text-background transition hover:bg-brand-strong" type="submit">
+                                    Verificar autorização
+                                    <UserPlus size={18} />
+                                </button>
+                            </form>
+                        </>
+                    ) : (
+                        <div className="mt-5 rounded-2xl border border-line bg-panel p-6 shadow-sm">
+                            <h1 className="font-display text-3xl font-bold">Cadastro indisponível</h1>
+                            <p className="mt-3 leading-7 text-muted">{estadoConvite.mensagem}</p>
+                        </div>
+                    )}
 
-                    <p className="mt-7 text-center text-base text-muted">
-                        Já possui uma conta?{" "}
-                        <Link className="font-semibold text-brand underline-offset-4 transition hover:underline" href="/login">Entrar</Link>
-                    </p>
-                    <Link className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-muted transition hover:text-ink" href="/login">
-                        <ArrowLeft size={16} aria-hidden="true" />
-                        Voltar ao login
-                    </Link>
+                    <p className="mt-7 text-center text-base text-muted">Já possui uma conta? <Link className="font-semibold text-brand underline-offset-4 hover:underline" href="/login">Entrar</Link></p>
+                    <Link className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-muted transition hover:text-ink" href="/login"><ArrowLeft size={16} />Voltar ao login</Link>
                 </motion.div>
             </section>
         </main>
     );
 }
 
+function TelaCarregando({ texto }: { texto: string }) {
+    return <main className="grid min-h-dvh place-items-center bg-background px-6 text-center text-muted"><div className="grid justify-items-center gap-3"><Loader2 className="animate-spin text-brand" size={28} /><span className="text-sm font-semibold">{texto}</span></div></main>;
+}
+
+function MensagemErro({ mensagem }: { mensagem: string }) {
+    return <p className="rounded-lg border border-accent/40 bg-accent/8 px-3 py-2.5 text-sm font-medium text-accent" role="alert">{mensagem}</p>;
+}
+
 function CampoCadastro({ children, icone, label }: { children: React.ReactNode; icone: React.ReactNode; label: string }) {
-    return (
-        <label className="grid gap-2 text-base font-semibold text-ink">
-            {label}
-            <span className="flex h-12 items-center gap-3 rounded-lg border border-line bg-input-bg px-3 text-muted transition focus-within:border-brand focus-within:ring-3 focus-within:ring-focus/35">
-                {icone}
-                {children}
-            </span>
-        </label>
-    );
+    return <label className="grid gap-2 text-base font-semibold text-ink">{label}<span className="flex h-12 items-center gap-3 rounded-lg border border-line bg-input-bg px-3 text-muted transition focus-within:border-brand focus-within:ring-3 focus-within:ring-focus/35">{icone}{children}</span></label>;
 }

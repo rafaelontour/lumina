@@ -2,30 +2,98 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, KeyRound, Loader2, UserRound } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 
 import GoogleGeminiEffect from "@/app/components/GoogleGeminiEffect";
 import { useAuth } from "@/app/data/provider/AuthProvider";
+import { aceitarConvite, consultarConvite } from "@/app/services/convite";
+import type { ConvitePublico } from "@/app/types/Convite";
 import logoBranco from "@/public/lumina_branco.png";
 import logoLaranja from "@/public/lumina_laranja.png";
 
 export default function LoginPage() {
+    return (
+        <Suspense fallback={<TelaCarregandoLogin />}>
+            <ConteudoLogin />
+        </Suspense>
+    );
+}
+
+function ConteudoLogin() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const codigoConvite = searchParams.get("convite")?.trim() ?? "";
     const reduzirMovimento = useReducedMotion();
-    const { estado, iniciarSessao } = useAuth();
+    const { encerrarSessao, estado, iniciarSessao, restaurarSessao, usuario } = useAuth();
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [mostrarSenha, setMostrarSenha] = useState(false);
     const [erro, setErro] = useState("");
     const [enviando, setEnviando] = useState(false);
+    const [convite, setConvite] = useState<ConvitePublico | null>(null);
+    const [avisoConvite, setAvisoConvite] = useState("");
+    const aceitandoConvite = useRef(false);
 
     useEffect(() => {
-        if (estado === "autenticado") router.replace("/");
-    }, [estado, router]);
+        const codigo = codigoConvite;
+        if (!codigo) return;
+
+        let ativo = true;
+        void consultarConvite(codigo).then(([conviteAtual, err]) => {
+            if (!ativo) return;
+            if (err || !conviteAtual || !conviteAtual.is_valid || conviteAtual.is_expired || conviteAtual.status !== "PENDING") {
+                setAvisoConvite("Este convite não está mais disponível. Você ainda pode entrar normalmente.");
+                return;
+            }
+            if (!conviteAtual.user_exists) {
+                setAvisoConvite("Este e-mail ainda não possui conta. Crie sua conta para aceitar o convite.");
+            }
+            setConvite(conviteAtual);
+        });
+
+        return () => {
+            ativo = false;
+        };
+    }, [codigoConvite]);
+
+    useEffect(() => {
+        if (estado === "autenticado" && codigoConvite === "") router.replace("/");
+    }, [codigoConvite, estado, router]);
+
+    useEffect(() => {
+        if (
+            estado !== "autenticado" ||
+            !usuario ||
+            !codigoConvite ||
+            !convite?.user_exists ||
+            aceitandoConvite.current
+        ) return;
+
+        aceitandoConvite.current = true;
+        void (async () => {
+            if (usuario.email.trim().toLocaleLowerCase("pt-BR") !== convite.email.trim().toLocaleLowerCase("pt-BR")) {
+                await encerrarSessao();
+                setErro(`Entre com a conta associada a ${convite.email}.`);
+                aceitandoConvite.current = false;
+                return;
+            }
+
+            const [, err] = await aceitarConvite(codigoConvite);
+            if (err) {
+                setErro(err.message);
+                aceitandoConvite.current = false;
+                return;
+            }
+
+            await restaurarSessao();
+            toast.success("Convite aceito e vínculo criado com sucesso.");
+            router.replace("/");
+        })();
+    }, [codigoConvite, convite, encerrarSessao, estado, restaurarSessao, router, usuario]);
 
     async function enviarFormulario(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -44,8 +112,10 @@ export default function LoginPage() {
             return;
         }
 
-        toast.success("Login realizado com sucesso. Boas-vindas ao Lumina!");
-        router.replace("/");
+        if (!codigoConvite || !convite?.user_exists) {
+            toast.success("Login realizado com sucesso. Boas-vindas ao Lumina!");
+            router.replace("/");
+        }
     }
 
     if (estado === "verificando") {
@@ -108,6 +178,15 @@ export default function LoginPage() {
                     </div>
                     <h1 className="mt-3 font-display text-5xl font-bold tracking-tight text-ink">Entrar no Lumina</h1>
                     <p className="mt-4 text-lg leading-7 text-muted">Use sua conta para acessar seus documentos e análises.</p>
+
+                    {codigoConvite && convite ? (
+                        <div className="mt-6 rounded-xl border border-brand/30 bg-brand/8 p-4 text-sm leading-6">
+                            <p className="font-display font-bold">Convite de {convite.inviter_name}</p>
+                            <p className="mt-1 text-muted">Entre com a conta de <strong className="text-ink">{convite.email}</strong> para criar o vínculo.</p>
+                        </div>
+                    ) : avisoConvite ? (
+                        <p className="mt-6 rounded-xl border border-line bg-panel p-4 text-sm leading-6 text-muted" role="status">{avisoConvite}</p>
+                    ) : null}
 
                     <form className="mt-9 grid gap-5" onSubmit={(event) => void enviarFormulario(event)}>
                         <label className="grid gap-2 text-base font-semibold text-ink">
@@ -182,12 +261,23 @@ export default function LoginPage() {
 
                     <p className="mt-7 text-center text-base text-muted">
                         Não tem uma conta?{" "}
-                        <Link className="font-semibold text-brand underline-offset-4 transition hover:underline" href="/cadastro">
+                        <Link className="font-semibold text-brand underline-offset-4 transition hover:underline" href={codigoConvite && convite && !convite.user_exists ? `/cadastro?${new URLSearchParams({ convite: codigoConvite })}` : "/cadastro"}>
                             Cadastre-se
                         </Link>
                     </p>
                 </motion.div>
             </section>
+        </main>
+    );
+}
+
+function TelaCarregandoLogin() {
+    return (
+        <main className="grid min-h-dvh place-items-center bg-background px-6 text-center text-muted">
+            <div className="grid justify-items-center gap-3">
+                <Loader2 className="animate-spin text-brand" size={28} />
+                <span className="text-sm font-semibold">Preparando o acesso…</span>
+            </div>
         </main>
     );
 }

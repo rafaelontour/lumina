@@ -21,6 +21,7 @@ type ContextoAutenticacao = {
     estadoOnboardingOrientacao: EstadoOnboardingOrientacao;
     erroOnboardingOrientacao: string | null;
     iniciarSessao: (credenciais: CredenciaisLogin) => Promise<Error | null>;
+    restaurarSessao: () => Promise<UsuarioAutenticado | null>;
     encerrarSessao: () => Promise<Error | null>;
     atualizarUsuarioConfirmado: (usuario: UsuarioAutenticado) => void;
     salvarOrientador: (orientadorId: string) => Promise<Error | null>;
@@ -144,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             estadoOnboardingOrientacao,
             erroOnboardingOrientacao,
             iniciarSessao,
+            restaurarSessao: verificarSessao,
             encerrarSessao: sair,
             atualizarUsuarioConfirmado,
             salvarOrientador,
@@ -156,6 +158,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             estadoOnboardingOrientacao,
             erroOnboardingOrientacao,
             iniciarSessao,
+            verificarSessao,
             sair,
             atualizarUsuarioConfirmado,
             salvarOrientador,

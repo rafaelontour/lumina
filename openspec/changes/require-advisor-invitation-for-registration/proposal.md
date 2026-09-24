@@ -1,35 +1,42 @@
 ## Why
 
-O cadastro público atual permite que qualquer visitante crie uma conta padrão, sem que um orientador tenha autorizado sua entrada na plataforma. O acesso inicial deve passar a depender de um convite emitido por um orientador, garantindo que a nova conta já nasça associada à pessoa responsável por sua orientação.
+O cadastro público atual permite criar uma conta padrão sem que um orientador tenha autorizado sua entrada. A plataforma precisa permitir que o orientador autorize previamente um e-mail e ofereça ao orientando tanto um link com código de convite quanto o cadastro direto pelo e-mail autorizado.
 
 ## What Changes
 
-- **BREAKING**: impedir a criação de contas padrão sem um convite válido, inclusive quando alguém acessa `/cadastro` diretamente.
-- Permitir que orientadores `ADMIN` informem o e-mail de uma pessoa em “Meus orientandos” e gerem um link de convite para copiar e compartilhar fora da plataforma.
-- Vincular o convite ao e-mail informado e ao orientador autenticado que o criou.
-- Fazer o link amigável `/convite/<código>` conduzir a pessoa à tela de login e apresentar um popup com nome e foto do orientador, a informação de que ele realizou o convite e a instrução de que basta criar a conta normalmente.
-- Permitir fechar o popup por uma ação explícita “Entendi” e preservar a autorização do convite quando a pessoa seguir do login para o cadastro.
-- Validar o convite antes de liberar o formulário de cadastro e exigir que a conta use o mesmo e-mail autorizado.
-- Manter a criação normal de senha no cadastro: a própria pessoa convidada define e confirma sua senha, sem senha provisória ou credencial definida pelo orientador.
-- Consumir o convite uma única vez ao criar a conta e estabelecer automaticamente o vínculo `MAIN_ADVISOR` com o orientador emissor.
-- Apresentar, quando o cadastro for acessado sem convite ou com convite inválido, expirado ou já utilizado, um aviso de que é necessário receber um link de convite de um orientador.
-- Manter o convite como autorização, sem enviar e-mail automaticamente: o orientador copia o link e o compartilha por um canal externo.
-- Adiar para uma mudança futura a alternativa de autorização avulsa por e-mail sem link.
+- **BREAKING**: condicionar a criação de contas padrão a uma autorização de e-mail emitida por um orientador.
+- Permitir que orientadores `ADMIN` informem o e-mail de uma pessoa em “Meus orientandos”, autorizem seu cadastro e obtenham um link de convite para copiar e compartilhar fora da plataforma.
+- Oferecer nessa mesma área uma seção chamada “Links ativos”, aberta sob demanda, com somente os convites pendentes, não expirados e emitidos pelo orientador autenticado.
+- Informar que links já utilizados deixam de aparecer em “Links ativos” e permitir que o orientador exclua antecipadamente um link pendente.
+- Tratar o token retornado pelo backend somente como código opaco do convite, transportado no link e nas operações de consulta, cadastro, aceite ou recusa; ele não representa sessão ou autenticação.
+- Permitir que uma pessoa sem conta se cadastre pelo link em um único passo, criando a conta `DEFAULT`, aceitando o convite e estabelecendo o vínculo acadêmico.
+- Permitir que a mesma pessoa acesse `/cadastro`, informe um e-mail previamente autorizado e crie a conta sem precisar possuir o link.
+- Direcionar pessoas que já possuem conta para o login e, após autenticação com o mesmo e-mail convidado, concluir o aceite do convite.
+- Permitir que o destinatário recuse um convite pendente.
+- Exibir nome do orientador, e-mail autorizado, projeto, tema e expiração quando esses dados estiverem disponíveis no contrato público.
+- Criar a conta convidada sem solicitar senha no formulário de cadastro e exigir que a própria pessoa defina sua primeira senha em um popup obrigatório após a sessão ser estabelecida.
+- Persistir no backend a pendência de definição da primeira senha, restaurando o popup após atualização da página até a conclusão bem-sucedida.
+- Após a definição da senha, restaurar o vínculo já criado e não exibir o modal de seleção de orientador.
+- Manter o convite como autorização compartilhada manualmente, sem envio automático de e-mail pela plataforma.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `advisor-registration-invitations`: geração, cópia, validação e consumo de convites de cadastro vinculados ao e-mail e ao orientador emissor.
+- `advisor-registration-invitations`: autorização de e-mail, geração e cópia do link, consulta, aceite, recusa e consumo de convites de orientação.
 
 ### Modified Capabilities
 
-- `standard-user-registration`: substituir o cadastro público irrestrito por um cadastro condicionado a convite válido e que cria o vínculo com o orientador emissor.
+- `standard-user-registration`: substituir o cadastro irrestrito por cadastro condicionado a convite por link ou autorização prévia do e-mail, com criação do vínculo e autenticação após sucesso.
 
 ## Impact
 
-- Nova ação administrativa em `app/components/DocumentosOrientandosWorkspace.tsx` ou componente dedicado da rota `/documentos/orientandos`.
-- Nova rota pública de entrada `/convite/[token]` e alterações em `app/login/page.tsx`, `app/cadastro/page.tsx`, `app/services/autenticacao.ts`, serviços de orientação e tipos compartilhados.
-- Novos contratos de backend para criar e validar convites, além de consumo atômico do convite durante a criação da conta e do vínculo de orientação.
-- Continuidade do uso de `/api/backend/*`, sessão por cookie `HttpOnly`, tratamento normalizado de erros e respostas em tupla nos serviços.
-- Nenhuma nova dependência de frontend e nenhum armazenamento de token de convite em `localStorage`, `sessionStorage` ou IndexedDB.
+- Ação administrativa em `app/components/DocumentosOrientandosWorkspace.tsx` ou componente dedicado da rota `/documentos/orientandos`.
+- Alterações em `app/login/page.tsx`, `app/cadastro/page.tsx`, `app/data/provider/AuthProvider.tsx`, serviços e tipos compartilhados.
+- Popup obrigatório no shell autenticado para definição da primeira senha antes de onboarding ou conteúdo protegido.
+- Nova entrada pública `/convite?token=<código>` ou rota amigável equivalente que preserve o código apenas durante o fluxo necessário.
+- Integração com `POST`/`GET /invitations`, `DELETE /invitations/{invitation_id}`, `GET /invitations/{token}`, `POST /invitations/{token}/register`, `POST /invitations/{token}/accept` e `POST /invitations/{token}/reject`.
+- Novo contrato backend necessário para validar e consumir um convite pendente somente pelo e-mail autorizado, pois o OpenAPI atual exige o código nas operações públicas.
+- Ajuste backend necessário para criar a conta convidada sem senha utilizável, expor `password_setup_required` em `/user/my` e permitir a definição inicial segura da senha somente para a conta autenticada marcada com essa pendência.
+- Continuidade do uso de `/api/backend/*`, sessão por cookie `HttpOnly`, respostas em tupla e erros normalizados em português.
+- Nenhuma nova dependência e nenhuma persistência do código do convite, senha ou token de acesso em armazenamento acessível ao JavaScript.
