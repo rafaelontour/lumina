@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Check, Copy, Loader2, Mail, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -8,8 +8,13 @@ import { criarConviteOrientacao } from "@/app/services/convite";
 import type { ConviteCriado } from "@/app/types/Convite";
 
 type ConviteOrientandoDialogProps = {
+    emailsOrientandosAtivos: string[];
     aoFechar: () => void;
 };
+
+function normalizarEmail(valor: string) {
+    return valor.trim().toLocaleLowerCase("pt-BR");
+}
 
 function formatarExpiracao(valor: string) {
     const data = new Date(valor);
@@ -21,7 +26,7 @@ function formatarExpiracao(valor: string) {
     }).format(data);
 }
 
-export default function ConviteOrientandoDialog({ aoFechar }: ConviteOrientandoDialogProps) {
+export default function ConviteOrientandoDialog({ emailsOrientandosAtivos, aoFechar }: ConviteOrientandoDialogProps) {
     const [email, setEmail] = useState("");
     const [erro, setErro] = useState("");
     const [enviando, setEnviando] = useState(false);
@@ -32,6 +37,10 @@ export default function ConviteOrientandoDialog({ aoFechar }: ConviteOrientandoD
     const dialogoRef = useRef<HTMLElement>(null);
     const emailRef = useRef<HTMLInputElement>(null);
     const elementoAnteriorRef = useRef<HTMLElement | null>(null);
+    const emailsVinculados = useMemo(
+        () => new Set(emailsOrientandosAtivos.map(normalizarEmail)),
+        [emailsOrientandosAtivos]
+    );
 
     useEffect(() => {
         elementoAnteriorRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -70,9 +79,13 @@ export default function ConviteOrientandoDialog({ aoFechar }: ConviteOrientandoD
 
     async function criarConvite(evento: FormEvent<HTMLFormElement>) {
         evento.preventDefault();
-        const emailNormalizado = email.trim().toLocaleLowerCase("pt-BR");
+        const emailNormalizado = normalizarEmail(email);
         if (!/^\S+@\S+\.\S+$/.test(emailNormalizado)) {
             setErro("Informe um e-mail válido para autorizar o cadastro.");
+            return;
+        }
+        if (emailsVinculados.has(emailNormalizado)) {
+            setErro("Já existe um vínculo ativo com esta conta.");
             return;
         }
 

@@ -420,7 +420,12 @@ export default function DocumentosOrientandosWorkspace() {
             })}
 
             {perfilSelecionado ? <ModalPerfilOrientando monitoramento={perfilSelecionado} aoFechar={fecharPerfil} /> : null}
-            {conviteAberto ? <ConviteOrientandoDialog aoFechar={fecharConvite} /> : null}
+            {conviteAberto ? (
+                <ConviteOrientandoDialog
+                    emailsOrientandosAtivos={monitoramento.map((item) => item.orientando.advisee.email)}
+                    aoFechar={fecharConvite}
+                />
+            ) : null}
             {linksAtivosAbertos ? <LinksAtivosDialog orientadorId={usuario.id} aoFechar={fecharLinksAtivos} /> : null}
             {orientandoParaRemover ? (
                 <ConfirmarRemocaoOrientandoDialog

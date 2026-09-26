@@ -6,12 +6,14 @@ O cadastro público atual permite criar uma conta padrão sem que um orientador 
 
 - **BREAKING**: condicionar a criação de contas padrão a uma autorização de e-mail emitida por um orientador.
 - Permitir que orientadores `ADMIN` informem o e-mail de uma pessoa em “Meus orientandos”, autorizem seu cadastro e obtenham um link de convite para copiar e compartilhar fora da plataforma.
+- Impedir a criação de outro convite quando o e-mail informado já pertence a um orientando com vínculo ativo com o orientador autenticado, apresentando um aviso legível na própria interface.
 - Oferecer nessa mesma área uma seção chamada “Links ativos”, aberta sob demanda, com somente os convites pendentes, não expirados e emitidos pelo orientador autenticado.
 - Informar que links já utilizados deixam de aparecer em “Links ativos” e permitir que o orientador exclua antecipadamente um link pendente.
 - Tratar o token retornado pelo backend somente como código opaco do convite, transportado no link e nas operações de consulta, cadastro, aceite ou recusa; ele não representa sessão ou autenticação.
 - Permitir que uma pessoa sem conta se cadastre pelo link em um único passo, criando a conta `DEFAULT`, aceitando o convite e estabelecendo o vínculo acadêmico.
 - Permitir que a mesma pessoa acesse `/cadastro`, informe um e-mail previamente autorizado e crie a conta sem precisar possuir o link.
-- Direcionar pessoas que já possuem conta para o login e, após autenticação com o mesmo e-mail convidado, concluir o aceite do convite.
+- Direcionar pessoas que já possuem conta e iniciam o fluxo anonimamente para o login e, após autenticação com o mesmo e-mail convidado, concluir o aceite do convite.
+- Tratar o convite como indisponível quando `/convite` ou `/login?convite=...` é aberto com uma sessão já autenticada, sem consultar ações de aceite ou recusa e sem consumir, cancelar ou expirar o link pendente.
 - Permitir que o destinatário recuse um convite pendente.
 - Exibir nome do orientador, e-mail autorizado, projeto, tema e expiração quando esses dados estiverem disponíveis no contrato público.
 - Criar a conta convidada sem solicitar senha no formulário de cadastro e exigir que a própria pessoa defina sua primeira senha em um popup obrigatório após a sessão ser estabelecida.
@@ -32,7 +34,7 @@ O cadastro público atual permite criar uma conta padrão sem que um orientador 
 ## Impact
 
 - Ação administrativa em `app/components/DocumentosOrientandosWorkspace.tsx` ou componente dedicado da rota `/documentos/orientandos`.
-- Alterações em `app/login/page.tsx`, `app/cadastro/page.tsx`, `app/data/provider/AuthProvider.tsx`, serviços e tipos compartilhados.
+- Alterações em `app/convite/ConviteClient.tsx`, `app/login/page.tsx`, `app/cadastro/page.tsx`, `app/data/provider/AuthProvider.tsx`, serviços e tipos compartilhados.
 - Popup obrigatório no shell autenticado para definição da primeira senha antes de onboarding ou conteúdo protegido.
 - Nova entrada pública `/convite?token=<código>` ou rota amigável equivalente que preserve o código apenas durante o fluxo necessário.
 - Integração com `POST`/`GET /invitations`, `DELETE /invitations/{invitation_id}`, `GET /invitations/{token}`, `POST /invitations/{token}/register`, `POST /invitations/{token}/accept` e `POST /invitations/{token}/reject`.

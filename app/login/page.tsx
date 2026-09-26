@@ -37,10 +37,18 @@ function ConteudoLogin() {
     const [convite, setConvite] = useState<ConvitePublico | null>(null);
     const [avisoConvite, setAvisoConvite] = useState("");
     const aceitandoConvite = useRef(false);
+    const estadoAutenticacaoNaEntrada = useRef<"autenticado" | "anonimo" | null>(null);
+    const consultaConviteIniciada = useRef(false);
 
     useEffect(() => {
         const codigo = codigoConvite;
-        if (!codigo) return;
+        if (!codigo || estado === "verificando") return;
+
+        if (estadoAutenticacaoNaEntrada.current === null) {
+            estadoAutenticacaoNaEntrada.current = estado;
+        }
+        if (estadoAutenticacaoNaEntrada.current === "autenticado" || consultaConviteIniciada.current) return;
+        consultaConviteIniciada.current = true;
 
         let ativo = true;
         void consultarConvite(codigo).then(([conviteAtual, err]) => {
@@ -58,7 +66,7 @@ function ConteudoLogin() {
         return () => {
             ativo = false;
         };
-    }, [codigoConvite]);
+    }, [codigoConvite, estado]);
 
     useEffect(() => {
         if (estado === "autenticado" && codigoConvite === "") router.replace("/");
@@ -70,6 +78,7 @@ function ConteudoLogin() {
             !usuario ||
             !codigoConvite ||
             !convite?.user_exists ||
+            estadoAutenticacaoNaEntrada.current !== "anonimo" ||
             aceitandoConvite.current
         ) return;
 
@@ -127,6 +136,10 @@ function ConteudoLogin() {
                 </div>
             </main>
         );
+    }
+
+    if (estado === "autenticado" && codigoConvite && !convite) {
+        return <TelaConviteBloqueadoPorSessao />;
     }
 
     return (
@@ -277,6 +290,25 @@ function TelaCarregandoLogin() {
             <div className="grid justify-items-center gap-3">
                 <Loader2 className="animate-spin text-brand" size={28} />
                 <span className="text-sm font-semibold">Preparando o acesso…</span>
+            </div>
+        </main>
+    );
+}
+
+function TelaConviteBloqueadoPorSessao() {
+    return (
+        <main className="grid min-h-dvh place-items-center bg-background px-6 py-12 text-center">
+            <div className="w-full max-w-lg rounded-2xl border border-line bg-panel p-7 shadow-sm">
+                <span className="mx-auto grid size-14 place-items-center rounded-full bg-brand/10 text-brand">
+                    <UserRound size={28} aria-hidden="true" />
+                </span>
+                <h1 className="mt-4 font-display text-3xl font-bold text-ink">Convite indisponível nesta sessão</h1>
+                <p className="mt-3 leading-7 text-muted">
+                    Este convite não está disponível nesta sessão.
+                </p>
+                <Link className="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-brand px-5 font-display font-semibold text-background transition hover:bg-brand-strong" href="/">
+                    Voltar para a plataforma
+                </Link>
             </div>
         </main>
     );

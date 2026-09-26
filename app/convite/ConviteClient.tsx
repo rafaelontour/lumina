@@ -2,11 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, CalendarClock, Check, Loader2, Mail, UserRound, X } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 
 import GoogleGeminiEffect from "@/app/components/GoogleGeminiEffect";
+import { useAuth } from "@/app/data/provider/AuthProvider";
 import { consultarConvite, recusarConvite } from "@/app/services/convite";
 import type { ConvitePublico } from "@/app/types/Convite";
 import logoBranco from "@/public/lumina_branco.png";
@@ -31,14 +32,28 @@ function conviteEstaDisponivel(convite: ConvitePublico) {
 
 export default function ConviteClient({ codigo }: { codigo: string }) {
     const reduzirMovimento = useReducedMotion();
+    const { estado: estadoAutenticacao } = useAuth();
     const [estado, setEstado] = useState<EstadoConvite>(codigo ? { status: "carregando" } : {
         status: "indisponivel",
         mensagem: "Este link não contém um código de convite válido.",
     });
     const [recusando, setRecusando] = useState(false);
+    const estadoAutenticacaoNaEntrada = useRef<"autenticado" | "anonimo" | null>(null);
 
     useEffect(() => {
-        if (!codigo) return;
+        if (!codigo || estadoAutenticacao === "verificando") return;
+
+        if (estadoAutenticacaoNaEntrada.current === null) {
+            estadoAutenticacaoNaEntrada.current = estadoAutenticacao;
+        }
+        if (estadoAutenticacaoNaEntrada.current === "autenticado") {
+            setEstado({
+                status: "indisponivel",
+                mensagem: "Este convite não está disponível nesta sessão.",
+            });
+            return;
+        }
+
         let ativo = true;
 
         void consultarConvite(codigo).then(([convite, err]) => {
@@ -65,7 +80,7 @@ export default function ConviteClient({ codigo }: { codigo: string }) {
         return () => {
             ativo = false;
         };
-    }, [codigo]);
+    }, [codigo, estadoAutenticacao]);
 
     const destinoPrincipal = useMemo(() => {
         if (estado.status !== "pronto") return "/login";
@@ -143,7 +158,9 @@ export default function ConviteClient({ codigo }: { codigo: string }) {
                         <EstadoConvite icone={<X size={30} />} titulo="Convite indisponível" descricao={estado.mensagem} />
                     )}
 
-                    <Link className="mt-7 inline-flex text-sm font-semibold text-brand underline-offset-4 hover:underline" href="/login">Ir para o login</Link>
+                    <Link className="mt-7 inline-flex text-sm font-semibold text-brand underline-offset-4 hover:underline" href={estadoAutenticacao === "autenticado" ? "/" : "/login"}>
+                        {estadoAutenticacao === "autenticado" ? "Voltar para a plataforma" : "Ir para o login"}
+                    </Link>
                 </motion.div>
             </section>
         </main>

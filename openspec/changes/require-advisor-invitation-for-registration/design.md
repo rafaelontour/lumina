@@ -11,9 +11,11 @@ Frontend requests continue through `/api/backend/*`; authenticated state remains
 **Goals:**
 
 - Let an advisor authorize one email and copy the link returned for that pending invitation.
+- Warn the advisor and avoid creating another invitation when the normalized email already belongs to one of that advisor's active advisees.
 - Let an advisor inspect and cancel their pending, unexpired links in a “Links ativos” section.
 - Give a link recipient a dedicated invitation page with advisor identity and invitation context.
 - Route new recipients to invited registration and existing users to login followed by authenticated acceptance.
+- Block invitation actions when the browser already has an authenticated session on entry, while preserving the pending link for later anonymous use.
 - Let an invited person reject a pending invitation.
 - Add direct registration by an email previously authorized by an advisor when the backend publishes the required operation.
 - Create invited accounts without collecting a password during registration and require the authenticated user to define the first password before onboarding or protected content.
@@ -36,6 +38,8 @@ Add an administrator-only “Convidar orientando” action to `/documentos/orien
 
 The action neither sends an email nor mutates the active-advisee list, because a pending invitation is not yet a relationship.
 
+Before submission, the dialog normalizes the entered email and compares it with the active advisee emails already loaded by the workspace. A match produces the inline warning “Já existe um vínculo ativo com esta conta” and does not call `POST /invitations`. Backend duplicate-relationship or stale-data errors remain authoritative and are still presented through the existing normalized error path.
+
 ### Manage only active links in the advisor workspace
 
 Place a “Links ativos” action beside “Convidar orientando”. It opens an accessible dialog and calls authenticated `GET /invitations` with `inviter_id` set to the current advisor and `status=PENDING`. The client still filters by issuing advisor, pending status, and future `expires_at` so an over-broad or stale response never exposes another advisor's link as active.
@@ -52,7 +56,9 @@ A frontend `HttpOnly` exchange was rejected because the existing backend contrac
 
 ### Use a dedicated invitation landing page
 
-`/convite` reads the query code and calls `GET /invitations/{token}` through the proxy. A usable pending invitation displays the inviter name, authorized email, expiration, and optional project/topic. Invalid or terminal invitations show a generic blocked state.
+`/convite` first waits for the existing `AuthProvider` session check. When the browser is anonymous, it reads the query code and calls `GET /invitations/{token}` through the proxy. A usable pending invitation displays the inviter name, authorized email, expiration, and optional project/topic. Invalid or terminal invitations show a generic blocked state.
+
+When that initial session check reports an authenticated user, the landing page presents an unavailable state and does not inspect, accept, or reject the invitation. This is a client interaction guard only: it does not mutate the invitation, so the pending link remains valid for a later visit without an authenticated session.
 
 When `user_exists` is false, the primary action opens `/cadastro?convite=...`. When true, it opens `/login?convite=...`. A confirmed refusal calls the public reject endpoint and replaces the available actions with a terminal state.
 
@@ -74,7 +80,9 @@ After success, the frontend reloads `GET /user/my` and releases the gate only af
 
 ### Accept after login for existing accounts
 
-`/login?convite=...` keeps ordinary login behavior. After successful authentication, the client verifies that the authenticated email matches the invitation email and calls `POST /invitations/{token}/accept` with the backend-managed session cookie. Acceptance failure keeps the user informed without retrying credentials. Success redirects to protected content with the new relationship available.
+`/login?convite=...` keeps ordinary login behavior only when the route was entered anonymously. After a successful login performed in that flow, the client verifies that the authenticated email matches the invitation email and calls `POST /invitations/{token}/accept` with the backend-managed session cookie. Acceptance failure keeps the user informed without retrying credentials. Success redirects to protected content with the new relationship available.
+
+If `/login?convite=...` is entered while a session is already authenticated, the page blocks invitation inspection and acceptance instead of treating that pre-existing session as a completed invitation login. It does not sign the user out automatically and does not change the pending invitation.
 
 ### Add email-only registration as a backend-coordinated entry
 
@@ -96,6 +104,8 @@ The current link proves possession of the shared code. Email-only registration p
 - [The user refreshes during first-password setup] -> Rebuild the blocking popup from `/user/my` on every full load and never use browser storage as the source of truth.
 - [The new user loses the session before defining a password] -> Keep account recovery behavior explicit in the backend contract so the account is not permanently inaccessible.
 - [A registered user may log in with the wrong account] -> Compare the authenticated email for immediate feedback and rely on backend validation as the security boundary.
+- [A pre-existing authenticated session could auto-accept a shared link] -> Record the entry authentication state, block invitation operations for that visit, and allow acceptance only after login from an initially anonymous invitation flow.
+- [The loaded advisee list is stale while an advisor creates a link] -> Block known active-email matches locally and preserve normalized backend conflict feedback as the authoritative fallback.
 - [The advisor relationship may not be visible immediately after registration] -> Restore `/user/my` and `/advisorship/my-advisors` before protected content, retaining onboarding only if the canonical relationship is actually absent.
 - [Clipboard APIs may fail] -> Keep the complete link visible and selectable for manual copying.
 - [An administrator-level listing may return invitations from other issuers] -> Send `inviter_id` and defensively filter every item against the authenticated advisor before rendering its link.
@@ -105,7 +115,7 @@ The current link proves possession of the shared code. Email-only registration p
 1. Update invited registration to create a passwordless flagged account, relationship, consumed invitation, and `HttpOnly` session atomically.
 2. Publish `password_setup_required` through `/user/my` and secure first-password definition through the authenticated password endpoint.
 3. Implement invitation types/services, the advisor creation dialog, and “Links ativos” listing/cancellation.
-4. Implement `/convite`, passwordless invited registration, the mandatory first-password gate, existing-account login/acceptance, refusal, and relationship restoration.
+4. Implement `/convite`, the pre-existing-session guard, passwordless invited registration, the mandatory first-password gate, existing-account login/acceptance from an anonymous entry, refusal, and relationship restoration.
 5. Publish backend operations for validation and atomic registration by authorized email using the same passwordless gate.
 6. Enable the email-first `/cadastro` path and then reject unrestricted `POST /user` registration.
 7. Verify both paths, terminal invitation states, session and gate restoration after refresh, and absence of advisor onboarding after first-password setup.

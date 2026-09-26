@@ -21,6 +21,12 @@ The application SHALL allow an authenticated `ADMIN` advisor to authorize a vali
 - **THEN** the application copies the complete link when browser support permits
 - **AND** keeps a visible selectable fallback when automatic copying is unavailable
 
+#### Scenario: Advisor enters an email already linked to them
+
+- **WHEN** the normalized recipient email belongs to an advisee with an active relationship to the authenticated advisor
+- **THEN** the application warns that an active relationship already exists with that account
+- **AND** does not request creation of another invitation
+
 #### Scenario: Invitation request is invalid or unauthorized
 
 - **WHEN** the email is invalid or a non-administrator attempts to create an invitation
@@ -80,6 +86,13 @@ The application SHALL use the invitation code returned by the backend to inspect
 - **THEN** the application blocks registration and acceptance through that invitation
 - **AND** presents generic guidance to request a new authorization from an advisor
 
+#### Scenario: Authenticated user opens a pending invitation link
+
+- **WHEN** a visitor opens `/convite` or `/login?convite=...` with a session that was already authenticated on entry
+- **THEN** the application presents the invitation as unavailable for that visit
+- **AND** does not inspect, accept, or reject the invitation
+- **AND** does not consume, cancel, expire, or otherwise invalidate the pending link
+
 #### Scenario: Invitation code is handled by the browser
 
 - **WHEN** the visitor follows, accepts, or rejects an invitation
@@ -129,11 +142,11 @@ The application SHALL allow an anonymous visitor to submit an email on `/cadastr
 
 ### Requirement: Existing-user invitation acceptance
 
-The application SHALL direct a recipient whose invited email already has an account to sign in and SHALL accept the invitation only when the authenticated account email matches the invited email.
+The application SHALL direct an anonymous recipient whose invited email already has an account to sign in and SHALL accept the invitation only when that same invitation flow performs authentication and the resulting account email matches the invited email. A session that was already authenticated when the invitation route was entered SHALL NOT trigger acceptance.
 
 #### Scenario: Existing user signs in and accepts
 
-- **WHEN** a valid invitation reports `user_exists: true` and the matching user authenticates
+- **WHEN** a valid invitation reports `user_exists: true` and the matching user authenticates after entering the invitation flow anonymously
 - **THEN** the application submits the invitation code to the authenticated acceptance operation
 - **AND** presents confirmation after the relationship is created
 

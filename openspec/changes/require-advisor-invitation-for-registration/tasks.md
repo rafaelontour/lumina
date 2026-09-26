@@ -31,6 +31,7 @@
 - [x] 3.8 Defensively show only invitations issued by the authenticated advisor that remain `PENDING` and unexpired, with recipient, expiration, selectable link, and copy action.
 - [x] 3.9 Add confirmed “Excluir link” cancellation and remove an item only after backend success.
 - [x] 3.10 Verify that used, rejected, cancelled, and expired invitations leave “Links ativos” while backend records may remain available for audit.
+- [x] 3.11 Pass the active advisee emails to the invitation dialog, normalize the submitted email, and warn without calling `POST /invitations` when that account already has an active relationship with the authenticated advisor.
 
 ## 4. Invitation landing and terminal actions
 
@@ -39,6 +40,7 @@
 - [x] 4.3 Show inviter name, invited email, expiration, and optional project/topic for a usable invitation.
 - [x] 4.4 Route `user_exists: false` to `/cadastro?convite=...` and `user_exists: true` to `/login?convite=...` while preserving the encoded code.
 - [x] 4.5 Add a confirmed refusal action using `POST /invitations/{token}/reject` and replace actions with the terminal result after success.
+- [x] 4.6 Wait for the session check on `/convite` and present an unavailable state without invitation inspection, acceptance, refusal, or mutation when the route was entered with an authenticated session.
 
 ## 5. Registration through the shared link
 
@@ -57,6 +59,7 @@
 - [x] 6.2 After successful matching-account login, call `POST /invitations/{token}/accept` with the authenticated cookie and show one success or failure notification.
 - [x] 6.3 Prevent frontend acceptance with a visibly mismatched authenticated email while retaining backend validation as the authority.
 - [x] 6.4 Redirect successful acceptance to protected content with the new relationship available and without resubmitting credentials.
+- [x] 6.5 Distinguish a pre-existing authenticated session from authentication completed inside an initially anonymous invitation flow, blocking the former without consuming the link while preserving acceptance after a fresh matching-account login.
 
 ## 7. Registration through an authorized email
 
@@ -67,9 +70,9 @@
 
 ## 8. Verification and rollout
 
-- [ ] 8.1 Verify advisor link generation, active-link listing, copy and deletion, used-link removal, invalid and long emails, backend failures, focus behavior, responsive layout, and light/dark themes.
-- [ ] 8.2 Verify invitation landing, new/existing user branches, refusal, every terminal status, malformed codes, URL encoding, and absence of invitation persistence.
-- [ ] 8.3 Verify passwordless link registration, mandatory first-password setup, refresh/reopen restoration, setup errors, existing-account acceptance, concurrent/reused invitations, mismatched accounts, session restoration, and relationship creation.
+- [ ] 8.1 Verify advisor link generation, already-linked-email warning without a creation request, active-link listing, copy and deletion, used-link removal, invalid and long emails, backend failures, focus behavior, responsive layout, and light/dark themes.
+- [ ] 8.2 Verify invitation landing, pre-existing-session blocking without consuming the link, new/existing user branches, refusal, every terminal status, malformed codes, URL encoding, and absence of invitation persistence.
+- [ ] 8.3 Verify passwordless link registration, mandatory first-password setup, refresh/reopen restoration, setup errors, existing-account acceptance only after an initially anonymous login flow, concurrent/reused invitations, mismatched accounts, session restoration, and relationship creation.
 - [ ] 8.4 Verify email-only authorization, ambiguous/missing authorization, successful registration, and direct backend rejection of unrestricted account creation.
 - [ ] 8.5 Verify that passwords, password-gate state, access tokens, invitation codes, and session state never enter browser-accessible storage or rendered errors.
 - [ ] 8.6 Run `pnpm lint`, `pnpm build`, and `openspec validate require-advisor-invitation-for-registration --type change` after the passwordless-registration and mandatory-password implementation.
