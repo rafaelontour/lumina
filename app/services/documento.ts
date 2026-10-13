@@ -375,6 +375,7 @@ export async function listarDocumentosExternosPorFonte(source: string): Promise<
                     limit: 100,
                     source,
                     archived: false,
+                    scope: "mine",
                 },
             }),
         "Não foi possível carregar os documentos enviados."
@@ -482,7 +483,7 @@ function ordenarDocumentosProjetoPorGrupo(
 
 export async function carregarWorkspaceDocumentos(): Promise<[DocumentoProjeto[], Error | null]> {
     const [[projetos, projetosErr], [grupos, gruposErr]] = await Promise.all([
-        listarProjetosDocumento(),
+        listarProjetosDocumento("mine"),
         listarGruposDocumento(),
     ]);
 

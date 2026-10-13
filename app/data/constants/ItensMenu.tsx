@@ -16,7 +16,6 @@ export type ItemMenu = {
     href: string;
     icone: LucideIcon;
     apenasAdmin?: boolean;
-    apenasNaoAdmin?: boolean;
 };
 
 export const itensMenu: ItemMenu[] = [
@@ -31,10 +30,9 @@ export const itensMenu: ItemMenu[] = [
         icone: Bot,
     }, 
     {
-        nome: "Documentos",
+        nome: "Meus documentos",
         href: "/documentos",
         icone: BriefcaseBusiness,
-        apenasNaoAdmin: true,
     },
     {
         nome: "Meus orientandos",

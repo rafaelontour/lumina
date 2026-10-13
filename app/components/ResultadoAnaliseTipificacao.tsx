@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Bot, ChevronDown, FileWarning } from "lucide-react";
 
+import MarkdownAnalise from "@/app/components/MarkdownAnalise";
 import { normalizarArvoreAnaliseRelease } from "@/app/services/documento";
 import type { FonteAnaliseRelease, ReleaseExterno, TaxonomiaAnaliseRelease } from "@/app/types/Documento";
 
@@ -99,7 +100,7 @@ function FontesAnalise({ fontes }: { fontes?: FonteAnaliseRelease[] }) {
             {fontes.map((fonte, indice) => (
                 <div key={fonte.id ?? `${fonte.name}-${indice}`}>
                     <strong className="text-ink">{fonte.name}</strong>
-                    {fonte.description ? <span>{`: ${fonte.description}`}</span> : null}
+                    {fonte.description ? <MarkdownAnalise compacto>{fonte.description}</MarkdownAnalise> : null}
                 </div>
             ))}
         </div>
@@ -149,7 +150,9 @@ function TaxonomiaAnalise({ taxonomia }: { taxonomia: TaxonomiaAnaliseRelease })
 
             {aberta ? (
                 <div className="grid gap-4">
-                    {taxonomia.description ? <p className="text-sm leading-6 text-muted">{taxonomia.description}</p> : null}
+                    {taxonomia.description ? (
+                        <MarkdownAnalise className="text-sm text-muted" compacto>{taxonomia.description}</MarkdownAnalise>
+                    ) : null}
                     <FontesAnalise fontes={taxonomia.sources} />
                     {(taxonomia.branches ?? []).map((criterio, indiceCriterio) => (
                         <section className="grid gap-2 border-l border-line pl-3" key={criterio.id ?? `${criterio.title}-${indiceCriterio}`}>
@@ -157,11 +160,13 @@ function TaxonomiaAnalise({ taxonomia }: { taxonomia: TaxonomiaAnaliseRelease })
                                 <strong className="break-words font-display text-sm font-bold text-ink">{criterio.title}</strong>
                                 <StatusAvaliacao fulfilled={criterio.evaluation?.fulfilled} score={criterio.evaluation?.score} />
                             </div>
-                            {criterio.description ? <p className="text-sm leading-6 text-muted">{criterio.description}</p> : null}
+                            {criterio.description ? (
+                                <MarkdownAnalise className="text-sm text-muted" compacto>{criterio.description}</MarkdownAnalise>
+                            ) : null}
                             {criterio.evaluation?.feedback ? (
                                 <div className="grid gap-1 text-sm leading-6 text-ink">
                                     <span className="font-bold">Feedback da Oiac IA</span>
-                                    <p className="whitespace-pre-wrap">{criterio.evaluation.feedback}</p>
+                                    <MarkdownAnalise compacto>{criterio.evaluation.feedback}</MarkdownAnalise>
                                 </div>
                             ) : null}
                         </section>
@@ -213,7 +218,9 @@ export default function ResultadoAnaliseTipificacao({ release }: { release: Rele
             {release.description?.trim() ? (
                 <section className="grid gap-2 rounded-xl border border-line bg-panel-soft p-4">
                     <h4 className="font-display text-sm font-bold text-ink">Resumo da análise</h4>
-                    <p className="whitespace-pre-wrap text-sm leading-6 text-muted">{release.description.trim()}</p>
+                    <MarkdownAnalise className="text-sm text-muted" compacto>
+                        {release.description.trim()}
+                    </MarkdownAnalise>
                 </section>
             ) : null}
 

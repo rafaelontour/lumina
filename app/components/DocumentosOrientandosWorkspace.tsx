@@ -28,6 +28,7 @@ import AvatarUsuario from "@/app/components/AvatarUsuario";
 import ConfirmarRemocaoOrientandoDialog from "@/app/components/ConfirmarRemocaoOrientandoDialog";
 import ConviteOrientandoDialog from "@/app/components/ConviteOrientandoDialog";
 import LinksAtivosDialog from "@/app/components/LinksAtivosDialog";
+import MarkdownAnalise from "@/app/components/MarkdownAnalise";
 import ResultadoAnaliseTipificacao, {
     calcularNotaMediaRelease,
     classeNotaMedia,
@@ -1220,7 +1221,7 @@ function MensagemConversaOrientando({ mensagem }: { mensagem: MensagemDocumento 
                 </span>
                 <span className="text-xs font-semibold text-muted">{formatarDataHora(mensagem.created_at)}</span>
             </div>
-            <p className="whitespace-pre-wrap break-words text-sm leading-6">{mensagem.content}</p>
+            <MarkdownAnalise className="break-words text-sm" compacto>{mensagem.content}</MarkdownAnalise>
         </article>
     );
 }

@@ -10,9 +10,7 @@ import MenuItem from "./MenuItem";
 export default function MenuLateral() {
     const { usuario } = useAuth();
     const administrador = usuario?.access_level === "ADMIN";
-    const itensVisiveis = itensMenu.filter(
-        (item) => (!item.apenasAdmin || administrador) && (!item.apenasNaoAdmin || !administrador)
-    );
+    const itensVisiveis = itensMenu.filter((item) => !item.apenasAdmin || administrador);
 
     return (
         <aside

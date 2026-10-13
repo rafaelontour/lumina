@@ -87,7 +87,7 @@ function ConteudoAppShell({ children, menuRecolhidoInicial }: Readonly<AppShellP
         );
     }
 
-    if (usuario?.access_level === "ADMIN" && (pathname === "/documentos" || pathname === "/orientandos")) {
+    if (usuario?.access_level === "ADMIN" && pathname === "/orientandos") {
         return (
             <ComToaster theme={resolvedTheme}>
                 <RedirecionarParaMeusOrientandos />

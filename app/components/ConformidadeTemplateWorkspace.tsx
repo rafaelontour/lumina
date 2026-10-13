@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, Eye, FileCheck2, FileText, FileWarning, History, Loader2, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
+import MarkdownAnalise from "@/app/components/MarkdownAnalise";
 import {
     enviarConformidadeTemplate,
     filtrarResultadosConformidadeTemplateDaVersao,
@@ -193,8 +194,8 @@ function CriterioCard({ criterio }: { criterio: CriterioTemplate }) {
                 <div className="grid gap-3">
                     {criterio.criterios.map((item, indice) => (
                         <div className="rounded-md border border-line bg-panel p-3" key={`${item.criterio}-${indice}`}>
-                            <strong className="text-sm text-ink">{item.criterio}</strong>
-                            <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-muted">{item.justificativa}</p>
+                            <MarkdownAnalise className="text-sm font-semibold" compacto>{item.criterio}</MarkdownAnalise>
+                            <MarkdownAnalise className="mt-1 text-sm text-muted" compacto>{item.justificativa}</MarkdownAnalise>
                         </div>
                     ))}
                 </div>
@@ -215,8 +216,8 @@ function CriterioCard({ criterio }: { criterio: CriterioTemplate }) {
                             {criterio.checks.map((check, indice) => (
                                 <tr className="border-t border-line align-top" key={`${check.field}-${indice}`}>
                                     <td className="px-3 py-2 font-semibold text-ink">{check.field}</td>
-                                    <td className="whitespace-pre-wrap px-3 py-2 text-muted">{check.templateValue}</td>
-                                    <td className="whitespace-pre-wrap px-3 py-2 text-muted">{check.articleValue}</td>
+                                    <td className="px-3 py-2 text-muted"><MarkdownAnalise compacto>{check.templateValue}</MarkdownAnalise></td>
+                                    <td className="px-3 py-2 text-muted"><MarkdownAnalise compacto>{check.articleValue}</MarkdownAnalise></td>
                                     <td className="px-3 py-2"><ResultadoBadge match={check.match} /></td>
                                 </tr>
                             ))}
@@ -863,7 +864,11 @@ export default function ConformidadeTemplateWorkspace() {
                                                         </div>
                                                     ) : null}
                                                 </div>
-                                                {descreverResumoParaUsuario(relatorio.descricao) ? <p className="whitespace-pre-wrap text-sm leading-6 text-muted">{descreverResumoParaUsuario(relatorio.descricao)}</p> : null}
+                                                {descreverResumoParaUsuario(relatorio.descricao) ? (
+                                                    <MarkdownAnalise className="text-sm text-muted" compacto>
+                                                        {descreverResumoParaUsuario(relatorio.descricao) as string}
+                                                    </MarkdownAnalise>
+                                                ) : null}
                                             </div>
                                         </article>
                                     ) : null}

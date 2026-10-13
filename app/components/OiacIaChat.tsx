@@ -11,6 +11,8 @@ import {
     Loader2,
     MapPin,
     MessageSquare,
+    PanelLeftClose,
+    PanelLeftOpen,
     Plus,
     Send,
     Trash2,
@@ -22,6 +24,7 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 
+import MarkdownAnalise from "@/app/components/MarkdownAnalise";
 import { normalizarArvoreAnaliseRelease } from "@/app/services/documento";
 import {
     apagarConversaOiac,
@@ -51,6 +54,7 @@ import type {
 } from "@/app/types/Oiac";
 
 interface OiacIaChatProps {
+    conversasRecolhidasInicialmente: boolean;
     documentoInicialId?: string;
     projectDocumentIdInicial?: string;
     releaseIdInicial?: string;
@@ -85,6 +89,7 @@ type EvidenciaPdfSelecionada = {
 };
 
 const intervaloAtualizacaoAnaliseMs = 3000;
+const cookiePainelConversasRecolhido = "lumina-oiac-conversas-recolhido";
 
 const PdfDocumentViewer = dynamic(() => import("./PdfDocumentViewer"), {
     ssr: false,
@@ -117,64 +122,6 @@ function formatarData(valor?: string) {
         hour: "2-digit",
         minute: "2-digit",
     }).format(new Date(valor));
-}
-
-function linhaTituloTopico(linha: string) {
-    return /^\d+\.\s+\S/.test(linha.trim());
-}
-
-function linhaTituloMarkdown(linha: string) {
-    return /^#{1,6}\s+\S/.test(linha.trim());
-}
-
-function tituloMensagem(linha: string) {
-    return linha
-        .trim()
-        .replace(/^#{1,6}\s+/, "")
-        .replace(/^\*\*(.+)\*\*:?$/, "$1")
-        .replace(/:$/, "");
-}
-
-function normalizarTexto(valor: string) {
-    return valor
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase();
-}
-
-function tituloResumoAnalise(linha: string) {
-    const titulo = tituloMensagem(linha);
-    const tituloNormalizado = normalizarTexto(titulo);
-
-    if (tituloNormalizado === "pontos atendidos") {
-        return {
-            titulo,
-            classe: "border-emerald-600/35 bg-emerald-600/10 text-emerald-700 dark:text-emerald-300",
-        };
-    }
-
-    if (tituloNormalizado === "pontos a aprimorar") {
-        return {
-            titulo,
-            classe: "border-laranja/40 bg-laranja/10 text-laranja",
-        };
-    }
-
-    if (tituloNormalizado === "apresentacao da ia" || tituloNormalizado === "apresentacao da analise") {
-        return {
-            titulo,
-            classe: "border-brand/35 bg-subtle-hover text-ink",
-        };
-    }
-
-    if (tituloNormalizado === "orientacao final") {
-        return {
-            titulo,
-            classe: "border-brand/45 bg-panel-soft text-brand",
-        };
-    }
-
-    return null;
 }
 
 function obterAnaliseInicial(release: ReleaseExterno | undefined, contextKey: string): AnaliseInicialOiac | null {
@@ -215,12 +162,14 @@ function criarMensagemLocalUsuario({
 }
 
 export default function OiacIaChat({
+    conversasRecolhidasInicialmente,
     documentoInicialId,
     filePathInicial,
     projectDocumentIdInicial,
     releaseIdInicial,
     tituloInicial,
 }: Readonly<OiacIaChatProps>) {
+    const [painelConversasRecolhido, setPainelConversasRecolhido] = useState(conversasRecolhidasInicialmente);
     const documentoInicialAvulso = Boolean(documentoInicialId && !projectDocumentIdInicial);
     const [abaConversas, setAbaConversas] = useState<AbaConversasOiac>(
         documentoInicialId && projectDocumentIdInicial ? "grupos" : "avulsas"
@@ -723,92 +672,147 @@ export default function OiacIaChat({
         toast.success("Conversa apagada.", { id: notificacaoId });
     }
 
+    function alternarPainelConversas() {
+        setPainelConversasRecolhido((recolhidoAtual) => {
+            const proximoEstado = !recolhidoAtual;
+            document.cookie = `${cookiePainelConversasRecolhido}=${proximoEstado}; path=/; max-age=31536000; samesite=lax`;
+            return proximoEstado;
+        });
+    }
+
     return (
-        <section className="grid h-full min-h-0 grid-cols-[320px_minmax(0,1fr)] bg-background text-ink">
-            <aside className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] border-r border-line bg-toolbar-bg">
-                <header className="grid gap-4 border-b border-line p-4">
-                    <div>
-                        <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-accent">
+        <section
+            className={`grid h-full min-h-0 bg-background text-ink transition-[grid-template-columns] duration-200 ${
+                painelConversasRecolhido
+                    ? "grid-cols-[64px_minmax(0,1fr)]"
+                    : "grid-cols-[320px_minmax(0,1fr)]"
+            }`}
+        >
+            <aside
+                id="painel-conversas-oiac"
+                className={
+                    painelConversasRecolhido
+                        ? "flex min-h-0 flex-col items-center border-r border-line bg-toolbar-bg py-4"
+                        : "grid min-h-0 grid-rows-[auto_minmax(0,1fr)] border-r border-line bg-toolbar-bg"
+                }
+            >
+                {painelConversasRecolhido ? (
+                    <div className="flex min-h-0 flex-col items-center gap-4">
+                        <button
+                            type="button"
+                            onClick={alternarPainelConversas}
+                            aria-controls="painel-conversas-oiac"
+                            aria-expanded="false"
+                            aria-label="Expandir lista de conversas"
+                            title="Expandir lista de conversas"
+                            className="grid size-10 place-items-center rounded-lg bg-laranja text-white transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-laranja"
+                        >
+                            <PanelLeftOpen size={20} />
+                        </button>
+                        <span className="rotate-180 font-display text-xs font-bold uppercase tracking-[0.18em] text-laranja [writing-mode:vertical-rl]">
                             Oiac IA
                         </span>
-                        <h1 className="mt-2 font-display text-2xl font-bold">Conversas</h1>
                     </div>
-
-                    <label
-                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg px-3 font-display text-sm font-semibold transition ${
-                            criandoConversa
-                                ? "cursor-not-allowed bg-muted/20 text-muted"
-                                : "bg-brand text-background hover:bg-brand-strong dark:text-preto"
-                        }`}
-                        aria-disabled={criandoConversa}
-                    >
-                        {criandoConversa ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
-                        {criandoConversa ? "Enviando PDF..." : "Nova conversa"}
-                        <input
-                            className="sr-only"
-                            type="file"
-                            accept="application/pdf,.pdf"
-                            disabled={criandoConversa}
-                            onChange={criarConversa}
-                        />
-                    </label>
-
-                    <div className="grid grid-cols-2 gap-1 rounded-lg border border-line bg-input-bg p-1" aria-label="Tipo de conversa">
-                        <BotaoAbaConversas
-                            ativo={abaConversas === "avulsas"}
-                            label="Individuais"
-                            onClick={() => setAbaConversas("avulsas")}
-                        />
-                        <BotaoAbaConversas
-                            ativo={abaConversas === "grupos"}
-                            label="Documentos"
-                            onClick={() => setAbaConversas("grupos")}
-                        />
-                    </div>
-                </header>
-
-                <div className="min-h-0 overflow-auto p-3">
-                    {abaConversas === "avulsas" ? (
-                        carregandoConversas ? (
-                            <EstadoLista texto="Carregando conversas..." icone={<Loader2 className="animate-spin" size={20} />} />
-                        ) : conversas.length === 0 ? (
-                            <EstadoLista texto="Nenhuma conversa individual." icone={<MessageSquare size={20} />} />
-                        ) : (
-                            <div className="grid gap-2">
-                                {conversas.map((conversa) => {
-                                    const ativa = conversaSelecionada?.id === conversa.id;
-
-                                    return (
-                                        <button
-                                            key={conversa.id}
-                                            type="button"
-                                            onClick={() => selecionarConversaAvulsa(conversa)}
-                                            className={`grid min-w-0 gap-1 rounded-lg border p-3 text-left transition ${
-                                                ativa
-                                                    ? "border-brand bg-panel-soft text-ink"
-                                                    : "border-line bg-input-bg text-muted hover:border-brand hover:bg-subtle-hover hover:text-ink"
-                                            }`}
-                                        >
-                                            <span className="overflow-hidden text-ellipsis whitespace-nowrap font-display text-sm font-bold" title={conversa.name}>
-                                                {conversa.name}
-                                            </span>
-                                            <span className="text-xs font-semibold">
-                                                {formatarData(conversa.updated_at ?? conversa.created_at)}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
+                ) : (
+                    <>
+                        <header className="grid gap-4 border-b border-line p-4">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-accent">
+                                        Oiac IA
+                                    </span>
+                                    <h1 className="mt-2 font-display text-2xl font-bold">Conversas</h1>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={alternarPainelConversas}
+                                    aria-controls="painel-conversas-oiac"
+                                    aria-expanded="true"
+                                    aria-label="Recolher lista de conversas"
+                                    title="Recolher lista de conversas"
+                                    className="grid size-10 shrink-0 place-items-center rounded-lg bg-laranja text-white transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-laranja"
+                                >
+                                    <PanelLeftClose size={20} />
+                                </button>
                             </div>
-                        )
-                    ) : (
-                        <ListaConversasAgrupadas
-                            carregando={carregandoConversasAgrupadas}
-                            conversaSelecionadaId={conversaSelecionada?.id}
-                            projetos={conversasAgrupadas}
-                            onSelect={selecionarConversaAgrupada}
-                        />
-                    )}
-                </div>
+
+                            <label
+                                className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg px-3 font-display text-sm font-semibold transition ${
+                                    criandoConversa
+                                        ? "cursor-not-allowed bg-muted/20 text-muted"
+                                        : "bg-brand text-background hover:bg-brand-strong dark:text-preto"
+                                }`}
+                                aria-disabled={criandoConversa}
+                            >
+                                {criandoConversa ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
+                                {criandoConversa ? "Enviando PDF..." : "Nova conversa"}
+                                <input
+                                    className="sr-only"
+                                    type="file"
+                                    accept="application/pdf,.pdf"
+                                    disabled={criandoConversa}
+                                    onChange={criarConversa}
+                                />
+                            </label>
+
+                            <div className="grid grid-cols-2 gap-1 rounded-lg border border-line bg-input-bg p-1" aria-label="Tipo de conversa">
+                                <BotaoAbaConversas
+                                    ativo={abaConversas === "avulsas"}
+                                    label="Individuais"
+                                    onClick={() => setAbaConversas("avulsas")}
+                                />
+                                <BotaoAbaConversas
+                                    ativo={abaConversas === "grupos"}
+                                    label="Documentos"
+                                    onClick={() => setAbaConversas("grupos")}
+                                />
+                            </div>
+                        </header>
+
+                        <div className="min-h-0 overflow-auto p-3">
+                            {abaConversas === "avulsas" ? (
+                                carregandoConversas ? (
+                                    <EstadoLista texto="Carregando conversas..." icone={<Loader2 className="animate-spin" size={20} />} />
+                                ) : conversas.length === 0 ? (
+                                    <EstadoLista texto="Nenhuma conversa individual." icone={<MessageSquare size={20} />} />
+                                ) : (
+                                    <div className="grid gap-2">
+                                        {conversas.map((conversa) => {
+                                            const ativa = conversaSelecionada?.id === conversa.id;
+
+                                            return (
+                                                <button
+                                                    key={conversa.id}
+                                                    type="button"
+                                                    onClick={() => selecionarConversaAvulsa(conversa)}
+                                                    className={`grid min-w-0 gap-1 rounded-lg border p-3 text-left transition ${
+                                                        ativa
+                                                            ? "border-brand bg-panel-soft text-ink"
+                                                            : "border-line bg-input-bg text-muted hover:border-brand hover:bg-subtle-hover hover:text-ink"
+                                                    }`}
+                                                >
+                                                    <span className="overflow-hidden text-ellipsis whitespace-nowrap font-display text-sm font-bold" title={conversa.name}>
+                                                        {conversa.name}
+                                                    </span>
+                                                    <span className="text-xs font-semibold">
+                                                        {formatarData(conversa.updated_at ?? conversa.created_at)}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )
+                            ) : (
+                                <ListaConversasAgrupadas
+                                    carregando={carregandoConversasAgrupadas}
+                                    conversaSelecionadaId={conversaSelecionada?.id}
+                                    projetos={conversasAgrupadas}
+                                    onSelect={selecionarConversaAgrupada}
+                                />
+                            )}
+                        </div>
+                    </>
+                )}
             </aside>
 
             <main className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)]">
@@ -1126,38 +1130,12 @@ function ListaConversasAgrupadas({
 
 function ConteudoMensagem({ content, resumoAnalise = false }: { content: string; resumoAnalise?: boolean }) {
     return (
-        <div className={`grid text-justify text-base leading-7 md:text-lg md:leading-8 ${resumoAnalise ? "gap-2" : "gap-3"}`}>
-            {content.split("\n").map((linha, indice) => {
-                const tituloResumo = resumoAnalise ? tituloResumoAnalise(linha) : null;
-                const titulo = linhaTituloTopico(linha) || linhaTituloMarkdown(linha);
-
-                if (tituloResumo) {
-                    return (
-                        <strong
-                            className={`mt-1 w-fit rounded-md border px-3 py-1.5 font-display text-base font-bold leading-6 md:text-lg ${tituloResumo.classe}`}
-                            key={`${indice}-${linha}`}
-                        >
-                            {tituloResumo.titulo}
-                        </strong>
-                    );
-                }
-
-                if (resumoAnalise && !linha.trim()) return null;
-
-                return titulo ? (
-                    <strong
-                        className="mt-2 block font-display text-lg font-bold leading-7 text-ink md:text-xl md:leading-8"
-                        key={`${indice}-${linha}`}
-                    >
-                        {tituloMensagem(linha)}
-                    </strong>
-                ) : (
-                    <p className="whitespace-pre-wrap indent-6" key={`${indice}-${linha}`}>
-                        {linha || " "}
-                    </p>
-                );
-            })}
-        </div>
+        <MarkdownAnalise
+            className="text-justify text-base md:text-lg"
+            destacarTitulosSintese={resumoAnalise}
+        >
+            {content}
+        </MarkdownAnalise>
     );
 }
 
@@ -1249,7 +1227,7 @@ function FontesAnalise({ fontes }: { fontes?: FonteAnaliseRelease[] }) {
             {fontes.map((fonte, indice) => (
                 <div key={fonte.id ?? `${fonte.name}-${indice}`}>
                     <strong className="text-ink">{fonte.name}</strong>
-                    {fonte.description ? <span>{`: ${fonte.description}`}</span> : null}
+                    {fonte.description ? <MarkdownAnalise compacto>{fonte.description}</MarkdownAnalise> : null}
                 </div>
             ))}
         </div>
@@ -1367,7 +1345,9 @@ function TaxonomiaAnaliseColapsavel({
                         transition={{ duration: reduzirMovimento ? 0 : 0.18, ease: "easeOut" }}
                     >
                         <div className="grid gap-3 pt-4">
-                            {taxonomia.description ? <p className="text-justify text-sm leading-6 text-muted">{taxonomia.description}</p> : null}
+                            {taxonomia.description ? (
+                                <MarkdownAnalise className="text-justify text-sm text-muted" compacto>{taxonomia.description}</MarkdownAnalise>
+                            ) : null}
                             <FontesAnalise fontes={taxonomia.sources} />
 
                             <div className="grid gap-4">
@@ -1385,11 +1365,15 @@ function TaxonomiaAnaliseColapsavel({
                                                 score={criterio.evaluation?.score}
                                             />
                                         </div>
-                                        {criterio.description ? <p className="text-justify text-sm leading-6 text-muted">{criterio.description}</p> : null}
+                                        {criterio.description ? (
+                                            <MarkdownAnalise className="text-justify text-sm text-muted" compacto>{criterio.description}</MarkdownAnalise>
+                                        ) : null}
                                         {criterio.evaluation?.feedback ? (
                                             <div className="grid gap-1 text-sm leading-6 text-ink">
                                                 <span className="font-bold">Feedback da Oiac IA</span>
-                                                <p className="whitespace-pre-wrap text-justify indent-6">{criterio.evaluation.feedback}</p>
+                                                <MarkdownAnalise className="text-justify" compacto>
+                                                    {criterio.evaluation.feedback}
+                                                </MarkdownAnalise>
                                             </div>
                                         ) : null}
                                         {criterio.evaluation?.references?.length ? (

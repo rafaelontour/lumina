@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, BookCheck, CheckCircle2, ChevronDown, Eye, FileCheck2, FileText, FileWarning, History, Loader2, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
+import MarkdownAnalise from "@/app/components/MarkdownAnalise";
 import {
     enviarConformidadeAbnt,
     filtrarResultadosConformidadeAbntDaVersao,
@@ -218,7 +219,7 @@ function RelatorioAbnt({ relatorio, nomeArquivoSelecionado }: { relatorio: Relat
                                         </div>
                                     ) : null}
                                 </div>
-                                {relatorio.descricao ? <p className="whitespace-pre-wrap text-sm leading-6 text-muted">{relatorio.descricao}</p> : null}
+                                {relatorio.descricao ? <MarkdownAnalise className="text-sm text-muted" compacto>{relatorio.descricao}</MarkdownAnalise> : null}
                             </div>
                         </section>
                     ) : null}
@@ -239,8 +240,8 @@ function RelatorioAbnt({ relatorio, nomeArquivoSelecionado }: { relatorio: Relat
                                         </div>
                                     </summary>
                                     <div className="grid gap-3 border-t border-line p-4">
-                                        <div className="grid gap-1"><strong className="text-base text-ink">Norma ou referência</strong><span className="whitespace-pre-wrap text-sm leading-6 text-muted">{criterio.norma}</span></div>
-                                        <div className="grid gap-1"><strong className="text-base text-ink">Justificativa</strong><span className="whitespace-pre-wrap text-sm leading-6 text-muted">{criterio.justificativa}</span></div>
+                                        <div className="grid gap-1"><strong className="text-base text-ink">Norma ou referência</strong><MarkdownAnalise className="text-sm text-muted" compacto>{criterio.norma}</MarkdownAnalise></div>
+                                        <div className="grid gap-1"><strong className="text-base text-ink">Justificativa</strong><MarkdownAnalise className="text-sm text-muted" compacto>{criterio.justificativa}</MarkdownAnalise></div>
                                     </div>
                                 </details>
                             </li>
@@ -254,8 +255,11 @@ function RelatorioAbnt({ relatorio, nomeArquivoSelecionado }: { relatorio: Relat
 
 function ValorRelatorio({ valor, profundidade = 0 }: { valor: unknown; profundidade?: number }) {
     if (valor === null || valor === undefined) return <span className="text-muted">Não informado</span>;
-    if (typeof valor === "string" || typeof valor === "number" || typeof valor === "boolean") {
-        return <span className="whitespace-pre-wrap text-sm leading-6 text-ink">{String(valor)}</span>;
+    if (typeof valor === "string") {
+        return <MarkdownAnalise className="text-sm" compacto>{valor}</MarkdownAnalise>;
+    }
+    if (typeof valor === "number" || typeof valor === "boolean") {
+        return <span className="text-sm leading-6 text-ink">{String(valor)}</span>;
     }
 
     if (Array.isArray(valor)) {
