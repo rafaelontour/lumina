@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, GitBranch, Layers3, Loader2, Pencil, Plus, Save, Search, ShieldCheck, Trash2, X } from "lucide-react";
+import { AlertCircle, FileUp, GitBranch, Layers3, Loader2, Pencil, Plus, Save, Search, ShieldCheck, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/app/data/provider/AuthProvider";
+import TipificacaoDocumentoWorkspace from "@/app/components/TipificacaoDocumentoWorkspace";
 
 import {
     criarArvoreTipificacao,
@@ -98,6 +99,8 @@ export default function TipificacoesPage() {
     const [erro, setErro] = useState("");
     const [taxonomiaSelecionada, setTaxonomiaSelecionada] = useState<Taxonomia | null>(null);
     const [taxonomiaEmDestaque, setTaxonomiaEmDestaque] = useState<string | null>(null);
+    const [seletorCriacaoAberto, setSeletorCriacaoAberto] = useState(false);
+    const [criacaoDocumentoAberta, setCriacaoDocumentoAberta] = useState(false);
     const [criacaoAberta, setCriacaoAberta] = useState(false);
     const [rascunho, setRascunho] = useState<TipificacaoRascunho>(criarTipificacaoRascunho);
     const [erroRascunho, setErroRascunho] = useState("");
@@ -187,6 +190,15 @@ export default function TipificacoesPage() {
     }, [criacaoAberta, fecharCriacao, salvandoRascunho]);
 
     useEffect(() => {
+        if (!seletorCriacaoAberto) return;
+        function fecharComEscape(event: KeyboardEvent) {
+            if (event.key === "Escape") setSeletorCriacaoAberto(false);
+        }
+        window.addEventListener("keydown", fecharComEscape);
+        return () => window.removeEventListener("keydown", fecharComEscape);
+    }, [seletorCriacaoAberto]);
+
+    useEffect(() => {
         if (!formularioContextual) return;
 
         function fecharComEscape(event: KeyboardEvent) {
@@ -199,9 +211,21 @@ export default function TipificacoesPage() {
 
     function abrirCriacao() {
         if (!podeExecutarGestao()) return;
+        setSeletorCriacaoAberto(true);
+    }
+
+    function abrirCriacaoManual() {
+        if (!podeExecutarGestao()) return;
+        setSeletorCriacaoAberto(false);
         setRascunho(criarTipificacaoRascunho());
         setErroRascunho("");
         setCriacaoAberta(true);
+    }
+
+    function abrirCriacaoDocumento() {
+        if (!podeExecutarGestao()) return;
+        setSeletorCriacaoAberto(false);
+        setCriacaoDocumentoAberta(true);
     }
 
     function abrirEdicaoTipificacao(tipificacao: Tipificacao) {
@@ -739,6 +763,52 @@ export default function TipificacoesPage() {
                     ))}
                 </div>
             )}
+
+            {podeGerenciar && seletorCriacaoAberto ? (
+                <div
+                    className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm"
+                    role="presentation"
+                    onMouseDown={(event) => {
+                        if (event.target === event.currentTarget) setSeletorCriacaoAberto(false);
+                    }}
+                >
+                    <section
+                        aria-labelledby="creation-mode-title"
+                        aria-modal="true"
+                        className="w-full max-w-2xl rounded-2xl border border-line bg-panel p-5 text-ink shadow-2xl"
+                        role="dialog"
+                    >
+                        <header className="flex items-start justify-between gap-4 border-b border-line pb-4">
+                            <div>
+                                <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-accent">Nova estrutura</span>
+                                <h2 className="mt-1 font-display text-2xl font-bold" id="creation-mode-title">Como deseja criar a tipificação?</h2>
+                                <p className="mt-2 text-sm leading-6 text-muted">Você pode montar toda a árvore manualmente ou gerar sugestões a partir de um documento normativo.</p>
+                            </div>
+                            <button aria-label="Fechar escolha de criação" className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg hover:border-brand" onClick={() => setSeletorCriacaoAberto(false)} type="button"><X size={18} /></button>
+                        </header>
+                        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                            <button autoFocus className="group grid min-h-44 content-start gap-3 rounded-xl border border-line bg-input-bg p-5 text-left transition hover:border-brand hover:bg-subtle-hover" onClick={abrirCriacaoManual} type="button">
+                                <span className="grid size-11 place-items-center rounded-xl bg-brand/12 text-brand-strong dark:text-brand"><Pencil size={21} /></span>
+                                <span className="font-display text-lg font-bold">Criar manualmente</span>
+                                <span className="text-sm leading-6 text-muted">Informe o nome, as taxonomias e cada ramo diretamente no formulário atual.</span>
+                            </button>
+                            <button className="group grid min-h-44 content-start gap-3 rounded-xl border border-line bg-input-bg p-5 text-left transition hover:border-brand hover:bg-subtle-hover" onClick={abrirCriacaoDocumento} type="button">
+                                <span className="grid size-11 place-items-center rounded-xl bg-accent/12 text-accent"><FileUp size={21} /></span>
+                                <span className="font-display text-lg font-bold">Gerar a partir de documento</span>
+                                <span className="text-sm leading-6 text-muted">Envie um PDF e revise as sugestões antes de aplicá-las à árvore real.</span>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            ) : null}
+
+            {podeGerenciar && criacaoDocumentoAberta ? (
+                <TipificacaoDocumentoWorkspace
+                    aoArvoreAlterada={() => carregarTipificacoes(false)}
+                    aoFechar={() => setCriacaoDocumentoAberta(false)}
+                    tipificacoes={tipificacoes}
+                />
+            ) : null}
 
             {podeGerenciar && criacaoAberta ? (
                 <div
