@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import Link from "next/link";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -45,6 +47,8 @@ import {
     type AnalisePendenteSalva,
 } from "@/app/services/filaAnalise";
 import { listarTipificacoes } from "@/app/services/tipificacao";
+import StudyGuideWorkspace from "@/app/components/StudyGuideWorkspace";
+import { useAuth } from "@/app/data/provider/AuthProvider";
 import type {
     ComponenteDocumento,
     DocumentoProjeto,
@@ -168,6 +172,7 @@ type UploadPendenteTipificacao = {
 const intervaloVerificacaoAnaliseMs = 5000;
 
 export default function DocumentosPage() {
+    const { usuario } = useAuth();
     const [documentos, setDocumentos] = useState<DocumentoProjeto[]>([]);
     const [tituloDocumento, setTituloDocumento] = useState("");
     const [gruposDocumento, setGruposDocumento] = useState<GrupoDocumento[]>([]);
@@ -419,6 +424,7 @@ export default function DocumentosPage() {
             title: titulo,
             kind: grupoSelecionado.name,
             groupId: grupoSelecionado.id,
+            createdBy: projeto.created_by ?? null,
             createdAt: projeto.created_at,
             components: resultados.flatMap(([projectDocument]) => {
                 if (!projectDocument) return [];
@@ -697,14 +703,14 @@ export default function DocumentosPage() {
                         Escolha um tipo de documento, salve com um nome e envie as seções exigidas para análise da IA.
                     </p>
                 </div>
-                <button
+                <BotaoComTitulo
                     className="inline-flex h-12 items-center gap-2 rounded-lg bg-brand px-5 font-display text-base font-bold text-white shadow-[0_12px_28px_-16px_var(--brand)] transition hover:bg-brand-strong dark:text-preto"
                     type="button"
                     onClick={abrirCriacaoDocumento}
                 >
                     <Plus size={20} />
                     Adicionar documento
-                </button>
+                </BotaoComTitulo>
             </header>
 
             {criandoDocumento ? (
@@ -724,14 +730,14 @@ export default function DocumentosPage() {
                                     Escolha o tipo e informe um nome
                                 </h2>
                             </div>
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg text-ink transition hover:border-brand hover:bg-subtle-hover"
                                 type="button"
                                 onClick={() => setCriandoDocumento(false)}
                                 aria-label="Fechar"
                             >
                                 <X size={18} />
-                            </button>
+                            </BotaoComTitulo>
                         </header>
 
                         <div className="grid gap-3" role="radiogroup" aria-label="Tipo de documento">
@@ -743,17 +749,18 @@ export default function DocumentosPage() {
                                         <FileWarning size={20} className="text-accent" />
                                         <span>{erroGrupos}</span>
                                     </div>
-                                    <button
+                                    <BotaoComTitulo
                                         className="inline-flex h-10 w-fit items-center rounded-lg border border-line px-3 font-semibold text-ink transition hover:bg-subtle-hover"
                                         type="button"
                                         onClick={() => void carregarGruposDocumento()}
                                     >
                                         Tentar novamente
-                                    </button>
+                                    </BotaoComTitulo>
                                 </div>
                             ) : (
                                 gruposDocumento.map((grupo) => (
-                                    <button
+                                    <BotaoComTitulo
+                                        title={`Selecionar o grupo ${grupo.name}`}
                                         className={`rounded-lg border p-4 text-left transition hover:border-brand hover:bg-subtle-hover ${
                                             grupoSelecionadoId === grupo.id
                                                 ? "border-brand bg-panel-soft text-ink"
@@ -770,7 +777,7 @@ export default function DocumentosPage() {
                                     >
                                         <strong className="font-display text-base text-ink">{grupo.name}</strong>
                                         <span className="mt-2 block text-sm leading-6">{resumoGrupo(grupo)}</span>
-                                    </button>
+                                    </BotaoComTitulo>
                                 ))
                             )}
                         </div>
@@ -791,21 +798,21 @@ export default function DocumentosPage() {
                         </label>
 
                         <div className="flex flex-wrap justify-end gap-3">
-                            <button
+                            <BotaoComTitulo
                                 className="h-11 rounded-lg border border-line px-4 font-display text-sm font-semibold text-ink transition hover:bg-subtle-hover"
                                 type="button"
                                 onClick={() => setCriandoDocumento(false)}
                             >
                                 Cancelar
-                            </button>
-                            <button
+                            </BotaoComTitulo>
+                            <BotaoComTitulo
                                 className="h-11 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-background transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-55"
                                 type="button"
                                 disabled={!tituloDocumento.trim() || !grupoSelecionado || grupoSelecionado.items.length === 0}
                                 onClick={adicionarDocumento}
                             >
                                 Salvar documento
-                            </button>
+                            </BotaoComTitulo>
                         </div>
                     </div>
                 </div>
@@ -836,7 +843,7 @@ export default function DocumentosPage() {
                                     Escolha a tipificação
                                 </h2>
                             </div>
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg text-ink transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
                                 type="button"
                                 disabled={confirmandoTipificacao}
@@ -844,7 +851,7 @@ export default function DocumentosPage() {
                                 aria-label="Fechar"
                             >
                                 <X size={18} />
-                            </button>
+                            </BotaoComTitulo>
                         </header>
 
                         <div className="grid gap-3">
@@ -857,13 +864,13 @@ export default function DocumentosPage() {
                             ) : erroTipificacoesUpload ? (
                                 <div className="grid gap-3 rounded-lg border border-accent/35 bg-input-bg p-4 text-sm leading-6 text-muted">
                                     <span>{erroTipificacoesUpload}</span>
-                                    <button
+                                    <BotaoComTitulo
                                         className="inline-flex h-10 w-fit items-center rounded-lg border border-line px-3 font-semibold text-ink transition hover:bg-subtle-hover"
                                         type="button"
                                         onClick={() => void carregarTipificacoesParaUpload()}
                                     >
                                         Tentar novamente
-                                    </button>
+                                    </BotaoComTitulo>
                                 </div>
                             ) : (
                                 <label className="grid gap-2">
@@ -885,15 +892,15 @@ export default function DocumentosPage() {
                         </div>
 
                         <div className="flex flex-wrap justify-end gap-3">
-                            <button
+                            <BotaoComTitulo
                                 className="h-11 rounded-lg border border-line px-4 font-display text-sm font-semibold text-ink transition hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
                                 type="button"
                                 disabled={confirmandoTipificacao}
                                 onClick={cancelarSelecaoTipificacao}
                             >
                                 Cancelar
-                            </button>
-                            <button
+                            </BotaoComTitulo>
+                            <BotaoComTitulo
                                 className="inline-flex h-11 items-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-background transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-55"
                                 type="button"
                                 disabled={carregandoTipificacoesUpload || Boolean(erroTipificacoesUpload) || !tipificacaoSelecionadaId || confirmandoTipificacao}
@@ -901,7 +908,7 @@ export default function DocumentosPage() {
                             >
                                 {confirmandoTipificacao ? <Loader2 className="animate-spin" size={18} /> : null}
                                 Confirmar envio
-                            </button>
+                            </BotaoComTitulo>
                         </div>
                     </div>
                 </div>
@@ -932,7 +939,7 @@ export default function DocumentosPage() {
                                     {documentoParaApagar.title}
                                 </h2>
                             </div>
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg text-ink transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
                                 type="button"
                                 disabled={apagandoDocumento}
@@ -940,7 +947,7 @@ export default function DocumentosPage() {
                                 aria-label="Fechar"
                             >
                                 <X size={18} />
-                            </button>
+                            </BotaoComTitulo>
                         </header>
 
                         <p className="text-sm leading-6 text-muted">
@@ -948,15 +955,15 @@ export default function DocumentosPage() {
                         </p>
 
                         <div className="flex flex-wrap justify-end gap-3">
-                            <button
+                            <BotaoComTitulo
                                 className="h-11 rounded-lg border border-line px-4 font-display text-sm font-semibold text-ink transition hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
                                 type="button"
                                 disabled={apagandoDocumento}
                                 onClick={() => setDocumentoParaApagar(null)}
                             >
                                 Cancelar
-                            </button>
-                            <button
+                            </BotaoComTitulo>
+                            <BotaoComTitulo
                                 className="inline-flex h-11 items-center gap-2 rounded-lg bg-laranja px-4 font-display text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-55"
                                 type="button"
                                 disabled={apagandoDocumento}
@@ -964,7 +971,7 @@ export default function DocumentosPage() {
                             >
                                 {apagandoDocumento ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
                                 Apagar
-                            </button>
+                            </BotaoComTitulo>
                         </div>
                     </div>
                 </div>
@@ -980,7 +987,7 @@ export default function DocumentosPage() {
             <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
                 <div className="flex flex-wrap gap-2" aria-label="Filtrar por tipo de documento">
                     {filtrosDocumento.map((filtro) => (
-                        <button
+                        <BotaoComTitulo
                             className={`h-10 rounded-lg border px-3 font-display text-sm font-semibold transition ${
                                 filtroDocumento === filtro
                                     ? "border-brand bg-panel-soft text-ink"
@@ -991,7 +998,7 @@ export default function DocumentosPage() {
                             onClick={() => setFiltroDocumento(filtro)}
                         >
                             {filtro}
-                        </button>
+                        </BotaoComTitulo>
                     ))}
                 </div>
 
@@ -1037,6 +1044,8 @@ export default function DocumentosPage() {
                         <CartaoDocumento
                             key={documento.id}
                             documento={documento}
+                            grupo={gruposDocumento.find((grupo) => grupo.id === documento.groupId) ?? null}
+                            usuarioId={usuario?.id}
                             onDelete={abrirConfirmacaoApagar}
                             editandoNome={documentoEditandoNomeId === documento.id}
                             nomeEmEdicao={documentoEditandoNomeId === documento.id ? nomeDocumentoEmEdicao : documento.title}
@@ -1058,6 +1067,8 @@ export default function DocumentosPage() {
 
 function CartaoDocumento({
     documento,
+    grupo,
+    usuarioId,
     onDelete,
     editandoNome,
     nomeEmEdicao,
@@ -1071,6 +1082,8 @@ function CartaoDocumento({
     onUpload,
 }: {
     documento: DocumentoProjeto;
+    grupo: GrupoDocumento | null;
+    usuarioId?: string;
     onDelete: (documentoId: string) => void;
     editandoNome: boolean;
     nomeEmEdicao: string;
@@ -1107,7 +1120,7 @@ function CartaoDocumento({
                                 }}
                                 autoFocus
                             />
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-brand text-background transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-55"
                                 type="button"
                                 disabled={salvandoNome}
@@ -1115,8 +1128,8 @@ function CartaoDocumento({
                                 aria-label="Salvar nome do documento"
                             >
                                 {salvandoNome ? <Loader2 className="animate-spin" size={17} /> : <Check size={17} />}
-                            </button>
-                            <button
+                            </BotaoComTitulo>
+                            <BotaoComTitulo
                                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg text-muted transition hover:border-accent hover:text-ink disabled:cursor-not-allowed disabled:opacity-55"
                                 type="button"
                                 disabled={salvandoNome}
@@ -1124,19 +1137,19 @@ function CartaoDocumento({
                                 aria-label="Cancelar edição do nome"
                             >
                                 <X size={17} />
-                            </button>
+                            </BotaoComTitulo>
                         </div>
                     ) : (
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                             <h2 className="font-display text-2xl font-bold">{documento.title}</h2>
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg text-muted transition hover:border-accent hover:text-ink"
                                 type="button"
                                 onClick={() => onStartEdit(documento)}
                                 aria-label="Editar nome do documento"
                             >
                                 <Edit2 size={15} />
-                            </button>
+                            </BotaoComTitulo>
                         </div>
                     )}
                     <p className="mt-2 text-sm font-semibold text-muted">
@@ -1154,16 +1167,23 @@ function CartaoDocumento({
                         {completo ? <CheckCircle2 size={17} /> : <RotateCcw size={17} />}
                         {completo ? "Completo" : "Em revisão"}
                     </span>
-                    <button
+                    <BotaoComTitulo
                         className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-input-bg px-3 font-display text-sm font-semibold text-muted transition hover:border-accent hover:text-ink"
                         type="button"
                         onClick={() => onDelete(documento.id)}
                     >
                         <Trash2 size={17} />
                         Apagar
-                    </button>
+                    </BotaoComTitulo>
                 </div>
             </header>
+
+            <StudyGuideWorkspace
+                projectId={documento.id}
+                projectOwnerId={documento.createdBy}
+                currentUserId={usuarioId}
+                group={grupo}
+            />
 
             <div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
                 {documento.components.map((componente) => {
@@ -1283,14 +1303,14 @@ function BotaoUploadPdf({
 
     return (
         <>
-            <button
+            <BotaoComTitulo
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-3 font-display text-sm font-semibold text-background transition hover:bg-brand-strong"
                 type="button"
                 onClick={() => inputRef.current?.click()}
             >
                 {novaVersao ? <FilePlus2 size={18} /> : <UploadCloud size={18} />}
                 {novaVersao ? "Enviar nova versão" : "Enviar PDF"}
-            </button>
+            </BotaoComTitulo>
             <input
                 ref={inputRef}
                 className="hidden"

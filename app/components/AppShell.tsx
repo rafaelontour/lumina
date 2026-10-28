@@ -36,7 +36,7 @@ function ConteudoAppShell({ children, menuRecolhidoInicial }: Readonly<AppShellP
         salvarOrientador,
         tentarNovamenteOnboardingOrientacao,
     } = useAuth();
-    const rotaPublica = pathname === "/login" || pathname === "/cadastro" || pathname === "/convite";
+    const rotaPublica = pathname === "/login" || pathname === "/cadastro" || pathname === "/convite" || pathname === "/esqueci-senha" || pathname === "/redefinir-senha";
 
     function alternarMenu() {
         setMenuRecolhido((valorAtual) => {

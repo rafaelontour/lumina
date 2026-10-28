@@ -19,6 +19,7 @@
 - [x] 3.3 Criar um workspace responsivo e acessível para o modo por documento, isolado do estado dos formulários manuais.
 - [x] 3.4 Adicionar seleção de PDF e escolha entre criar uma tipificação nova ou enriquecer uma tipificação existente, exigindo o alvo persistente no modo de enriquecimento.
 - [x] 3.5 Validar campos obrigatórios e PDF claramente inválido, bloquear submissão duplicada e manter o limite de tamanho sob autoridade do backend.
+- [x] 3.6 Adicionar o atalho “Enriquecer” na listagem, com ícone “i” e tooltip informativo no mesmo botão, abrindo o workspace em modo de enriquecimento com o alvo do cartão pré-selecionado.
 
 ## 4. Sessões e processamento assíncrono
 
@@ -27,6 +28,7 @@
 - [x] 4.3 Após o upload aceito, selecionar a sessão criada, atualizar a lista e apresentar imediatamente seu estado retornado.
 - [x] 4.4 Implementar polling cancelável somente para a sessão selecionada em `processing`, parando em `ready`, `failed`, `completed`, erro, troca de sessão ou fechamento do workspace.
 - [x] 4.5 Restaurar sessões e seus estados pelo backend ao reabrir o workspace, sem `localStorage`, IndexedDB ou cookies próprios.
+- [x] 4.6 Separar as gerações anteriores nas tabs `Pendentes` e `Concluídas`, mantendo em cada tab a ordem retornada pelo backend.
 
 ## 5. Revisão hierárquica
 

@@ -1,5 +1,8 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+import AvatarUsuario from "@/app/components/AvatarUsuario";
+
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, UserRoundCheck } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
@@ -102,7 +105,7 @@ export default function OnboardingOrientadorObrigatorio({
                             <AlertTriangle className="mt-0.5 shrink-0 text-laranja" size={20} />
                             <span>{mensagemErro}</span>
                         </div>
-                        <button
+                        <BotaoComTitulo
                             className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-line bg-input-bg px-3 font-semibold transition hover:bg-subtle-hover"
                             type="button"
                             disabled={salvando}
@@ -110,19 +113,19 @@ export default function OnboardingOrientadorObrigatorio({
                         >
                             <RefreshCw size={16} />
                             Tentar novamente
-                        </button>
+                        </BotaoComTitulo>
                     </div>
                 ) : orientadores.length === 0 ? (
                     <div className="grid gap-4 rounded-lg border border-line bg-input-bg p-4 text-sm text-muted" role="status">
                         <span>Nenhum orientador está disponível para seleção no momento.</span>
-                        <button
+                        <BotaoComTitulo
                             className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-line bg-panel px-3 font-semibold text-ink transition hover:bg-subtle-hover"
                             type="button"
                             onClick={() => void carregarOrientadores()}
                         >
                             <RefreshCw size={16} />
                             Atualizar lista
-                        </button>
+                        </BotaoComTitulo>
                     </div>
                 ) : (
                     <fieldset className="grid gap-3" disabled={salvando}>
@@ -131,8 +134,9 @@ export default function OnboardingOrientadorObrigatorio({
                             {orientadores.map((orientador) => {
                                 const selecionado = orientadorSelecionadoId === orientador.id;
                                 return (
-                                    <button
+                                    <BotaoComTitulo
                                         aria-checked={selecionado}
+                                        title={`Selecionar ${orientador.username} como orientador`}
                                         className={`flex items-center justify-between gap-4 rounded-lg border p-4 text-left transition ${
                                             selecionado ? "border-brand bg-panel-soft" : "border-line bg-input-bg hover:border-brand hover:bg-subtle-hover"
                                         }`}
@@ -141,12 +145,12 @@ export default function OnboardingOrientadorObrigatorio({
                                         type="button"
                                         onClick={() => setOrientadorSelecionadoId(orientador.id)}
                                     >
-                                        <span className="grid gap-1">
-                                            <strong className="font-display text-base">{orientador.username}</strong>
-                                            <span className="text-sm text-muted">{orientador.email}</span>
+                                        <span className="flex min-w-0 items-center gap-3">
+                                            <AvatarUsuario className="size-12" usuario={orientador} />
+                                            <strong className="truncate font-display text-base">{orientador.username}</strong>
                                         </span>
                                         {selecionado ? <CheckCircle2 className="shrink-0 text-brand" size={21} aria-hidden="true" /> : null}
-                                    </button>
+                                    </BotaoComTitulo>
                                 );
                             })}
                         </div>
@@ -154,7 +158,7 @@ export default function OnboardingOrientadorObrigatorio({
                 )}
 
                 <div className="flex justify-end border-t border-line pt-5">
-                    <button
+                    <BotaoComTitulo
                         className="inline-flex h-11 items-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-background transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-55"
                         type="button"
                         disabled={carregando || Boolean(mensagemErro) || orientadores.length === 0 || !orientadorSelecionadoId || salvando}
@@ -162,7 +166,7 @@ export default function OnboardingOrientadorObrigatorio({
                     >
                         {salvando ? <Loader2 className="animate-spin" size={17} /> : <UserRoundCheck size={17} />}
                         Salvar orientador
-                    </button>
+                    </BotaoComTitulo>
                 </div>
             </section>
         </div>

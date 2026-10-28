@@ -120,6 +120,7 @@ export type ItemGrupoDocumento = {
     icon_path: string | null;
     id: string;
     group_id: string;
+    position: number;
     created_at: string;
     updated_at: string | null;
 };
@@ -207,6 +208,7 @@ export type DocumentoProjeto = {
     title: string;
     kind: string;
     groupId?: string;
+    createdBy?: string | null;
     createdAt: string;
     components: ComponenteDocumento[];
 };

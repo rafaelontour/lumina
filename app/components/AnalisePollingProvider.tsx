@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { CheckCircle2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -82,14 +84,14 @@ export default function AnalisePollingProvider({ children }: { children: React.R
                             A análise do documento já está disponível.
                         </span>
                     </div>
-                    <button
+                    <BotaoComTitulo
                         className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-subtle-hover hover:text-ink"
                         type="button"
                         onClick={() => setAviso(null)}
                         aria-label="Fechar aviso"
                     >
                         <X size={16} />
-                    </button>
+                    </BotaoComTitulo>
                 </div>
             ) : null}
         </>

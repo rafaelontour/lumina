@@ -14,9 +14,10 @@ import {
     montarUrlApi,
 } from "./autenticacao";
 
-async function buscarTipificacoes() {
-    return axios.get<RespostaTipificacoes>(montarUrlApi("/typification?limit=100"), {
+async function buscarTipificacoes(q?: string) {
+    return axios.get<RespostaTipificacoes>(montarUrlApi("/typification"), {
         withCredentials: true,
+        params: { limit: 100, ...(q?.trim() ? { q: q.trim() } : {}) },
     });
 }
 
@@ -30,15 +31,64 @@ async function executarRequisicaoAutenticada<T>(
     return [response?.data ?? null, null];
 }
 
-export async function listarTipificacoes(): Promise<[Tipificacao[], Error | null]> {
+export async function listarTipificacoes(q?: string): Promise<[Tipificacao[], Error | null]> {
     const [response, err] = await executarRequisicaoAutenticada(
-        buscarTipificacoes,
+        () => buscarTipificacoes(q),
         "Não foi possível carregar as tipificações."
     );
     if (err) return [[], err];
 
     const tipificacoes = response?.typifications;
     return [Array.isArray(tipificacoes) ? tipificacoes : [], null];
+}
+
+export async function exportarTipificacoesPdf(typificationId?: string): Promise<[{ blob: Blob; filename: string } | null, Error | null]> {
+    const [response, err] = await executarRequisicao(() =>
+        axios.get<Blob>(montarUrlApi("/export/typifications/pdf"), {
+            withCredentials: true,
+            responseType: "blob",
+            headers: { "Cache-Control": "no-store" },
+            params: typificationId ? { typification_id: typificationId } : undefined,
+        })
+    );
+
+    if (err) {
+        const data = axios.isAxiosError(err) ? err.response?.data : null;
+        if (data instanceof Blob) {
+            const texto = await data.text();
+            try {
+                const json = JSON.parse(texto) as { detail?: string };
+                if (json.detail) return [null, new Error(json.detail)];
+            } catch {
+                // Non-JSON error bodies use the normalized fallback below.
+            }
+        }
+        return [null, criarErroApi(err, "Não foi possível exportar a tipificação em PDF.")];
+    }
+
+    const blob = response?.data;
+    if (!(blob instanceof Blob) || blob.size === 0) return [null, new Error("O backend não retornou um PDF válido.")];
+    const assinatura = new TextDecoder().decode(await blob.slice(0, 5).arrayBuffer());
+    if (assinatura !== "%PDF-") {
+        const texto = await blob.text();
+        try {
+            const json = JSON.parse(texto) as { detail?: string; message?: string };
+            if (json.detail || json.message) return [null, new Error(json.detail ?? json.message)];
+        } catch {
+            // The body is not a JSON error; return a stable PDF validation message.
+        }
+        return [null, new Error("A resposta da API não é um arquivo PDF.")];
+    }
+
+    const disposition = response?.headers["content-disposition"] as string | undefined;
+    const headerFilename = disposition?.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i)?.[1];
+    const decodedFilename = headerFilename ? decodeURIComponent(headerFilename.replace(/"/g, "")) : "";
+    const safeFilename = decodedFilename
+        .replace(/[\\/:*?\"<>|\u0000-\u001f]/g, "_")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    return [{ blob, filename: safeFilename || (typificationId ? "tipificacao.pdf" : "tipificacoes.pdf") }, null];
 }
 
 export async function criarTipificacao(nome: string): Promise<[Tipificacao | null, Error | null]> {

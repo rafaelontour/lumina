@@ -84,7 +84,7 @@ export default function HomeInicialAnimada() {
                         className="mt-9 inline-flex h-12 items-center gap-2 rounded-lg bg-brand px-5 font-display text-base font-semibold text-background transition hover:bg-brand-strong"
                         href="/oiac-ia"
                     >
-                        Acessar Oiac IA
+                        Acessar LuminaIA
                         <ArrowRight size={18} />
                     </Link>
                 </motion.div>
@@ -99,7 +99,7 @@ export default function HomeInicialAnimada() {
                 >
                     <HomeFeature
                         icon={Bot}
-                        title="Oiac IA"
+                        title="LuminaIA"
                         description="Analise automatica, chat e feedbacks vinculados ao PDF."
                     />
                     <HomeFeature

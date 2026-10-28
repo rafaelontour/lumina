@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { AlertTriangle, BookOpenCheck, CircleUserRound, Loader2, RefreshCw, UsersRound } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
@@ -52,7 +54,7 @@ export default function OrientandosWorkspace() {
                         Acompanhe os pesquisadores que selecionaram você como orientador na plataforma.
                     </p>
                 </div>
-                <button
+                <BotaoComTitulo
                     className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-input-bg px-3 font-semibold transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
                     type="button"
                     disabled={carregando}
@@ -60,7 +62,7 @@ export default function OrientandosWorkspace() {
                 >
                     <RefreshCw className={carregando ? "animate-spin" : ""} size={17} />
                     Atualizar
-                </button>
+                </BotaoComTitulo>
             </header>
 
             {carregando ? (

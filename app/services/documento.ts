@@ -582,6 +582,7 @@ export async function carregarWorkspaceDocumentos(): Promise<[DocumentoProjeto[]
                     title: projeto.name,
                     kind: grupo?.name ?? "Documento",
                     groupId: projeto.document_group_id ?? undefined,
+                    createdBy: projeto.created_by ?? null,
                     createdAt: projeto.created_at,
                     components,
                 };

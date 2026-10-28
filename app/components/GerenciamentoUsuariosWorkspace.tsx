@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { AlertTriangle, Loader2, RefreshCw, Search, ShieldCheck, ShieldPlus, Trash2, UsersRound } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -102,7 +104,7 @@ export default function GerenciamentoUsuariosWorkspace() {
                         <h1 className="mt-1 font-display text-2xl font-bold sm:text-3xl">Gerenciar usuários</h1>
                         <p className="mt-1 text-sm text-muted">Localize, remova contas e ajuste permissões quando necessário para testes.</p>
                     </div>
-                    <button
+                    <BotaoComTitulo
                         className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-panel px-3 text-sm font-semibold transition hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-60"
                         type="button"
                         disabled={carregando}
@@ -110,7 +112,7 @@ export default function GerenciamentoUsuariosWorkspace() {
                     >
                         <RefreshCw className={carregando ? "animate-spin" : ""} size={16} aria-hidden="true" />
                         Atualizar
-                    </button>
+                    </BotaoComTitulo>
                 </div>
             </header>
 
@@ -137,10 +139,10 @@ export default function GerenciamentoUsuariosWorkspace() {
                             <h2 className="font-display text-lg font-bold">Não foi possível carregar os usuários</h2>
                             <p className="mt-1 text-sm text-muted">{erro}</p>
                         </div>
-                        <button className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-input-bg px-3 text-sm font-semibold transition hover:bg-subtle-hover" type="button" onClick={() => void carregarUsuarios(consulta)}>
+                        <BotaoComTitulo className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-input-bg px-3 text-sm font-semibold transition hover:bg-subtle-hover" type="button" onClick={() => void carregarUsuarios(consulta)}>
                             <RefreshCw size={16} aria-hidden="true" />
                             Tentar novamente
-                        </button>
+                        </BotaoComTitulo>
                     </section>
                 ) : usuarios.length === 0 ? (
                     <EstadoPainel icone={<UsersRound className="text-muted" size={30} />} texto={consulta ? "Nenhum usuário corresponde à busca." : "Nenhum usuário está disponível."} />
@@ -174,22 +176,22 @@ export default function GerenciamentoUsuariosWorkspace() {
                                                 <span className="text-xs font-semibold text-muted">Conta atual</span>
                                             ) : (
                                                 <div className="flex flex-wrap justify-end gap-2">
-                                                    <button
+                                                    <BotaoComTitulo
                                                         className="inline-flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-sm font-semibold transition hover:bg-subtle-hover"
                                                         type="button"
                                                         onClick={() => abrirAlteracaoAcesso(usuario)}
                                                     >
                                                         <ShieldPlus size={16} aria-hidden="true" />
                                                         Alterar acesso
-                                                    </button>
-                                                    <button
+                                                    </BotaoComTitulo>
+                                                    <BotaoComTitulo
                                                         className="inline-flex h-9 items-center gap-2 rounded-lg border border-accent/40 px-3 text-sm font-semibold text-accent transition hover:bg-accent/10"
                                                         type="button"
                                                         onClick={() => setUsuarioParaExcluir(usuario)}
                                                     >
                                                         <Trash2 size={16} aria-hidden="true" />
                                                         Remover
-                                                    </button>
+                                                    </BotaoComTitulo>
                                                 </div>
                                             )}
                                         </div>
@@ -250,13 +252,13 @@ function ConfirmacaoRemocaoUsuario({
                     A conta de <strong className="text-ink">{usuario.username}</strong> ({usuario.email}) será removida da plataforma. Esta ação não pode ser desfeita.
                 </p>
                 <div className="mt-6 flex justify-end gap-3">
-                    <button className="h-10 rounded-lg border border-line px-4 text-sm font-semibold transition hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-60" type="button" disabled={carregando} onClick={onCancelar}>
+                    <BotaoComTitulo className="h-10 rounded-lg border border-line px-4 text-sm font-semibold transition hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-60" type="button" disabled={carregando} onClick={onCancelar}>
                         Cancelar
-                    </button>
-                    <button className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60" type="button" disabled={carregando} onClick={onConfirmar}>
+                    </BotaoComTitulo>
+                    <BotaoComTitulo className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60" type="button" disabled={carregando} onClick={onConfirmar}>
                         {carregando ? <Loader2 className="animate-spin" size={16} aria-hidden="true" /> : <Trash2 size={16} aria-hidden="true" />}
                         {carregando ? "Removendo…" : "Remover usuário"}
-                    </button>
+                    </BotaoComTitulo>
                 </div>
             </section>
         </div>
@@ -306,13 +308,13 @@ function ConfirmacaoAlteracaoAcesso({
                     </select>
                 </label>
                 <div className="mt-6 flex justify-end gap-3">
-                    <button className="h-10 rounded-lg border border-line px-4 text-sm font-semibold transition hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-60" type="button" disabled={carregando} onClick={onCancelar}>
+                    <BotaoComTitulo className="h-10 rounded-lg border border-line px-4 text-sm font-semibold transition hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-60" type="button" disabled={carregando} onClick={onCancelar}>
                         Cancelar
-                    </button>
-                    <button className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-background transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60" type="button" disabled={carregando || !nivelAlterado} onClick={onConfirmar}>
+                    </BotaoComTitulo>
+                    <BotaoComTitulo className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-background transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60" type="button" disabled={carregando || !nivelAlterado} onClick={onConfirmar}>
                         {carregando ? <Loader2 className="animate-spin" size={16} aria-hidden="true" /> : <ShieldPlus size={16} aria-hidden="true" />}
                         {carregando ? "Salvando…" : "Confirmar alteração"}
-                    </button>
+                    </BotaoComTitulo>
                 </div>
             </section>
         </div>

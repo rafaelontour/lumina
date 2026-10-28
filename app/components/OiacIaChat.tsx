@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     Bot,
@@ -698,7 +700,7 @@ export default function OiacIaChat({
             >
                 {painelConversasRecolhido ? (
                     <div className="flex min-h-0 flex-col items-center gap-4">
-                        <button
+                        <BotaoComTitulo
                             type="button"
                             onClick={alternarPainelConversas}
                             aria-controls="painel-conversas-oiac"
@@ -708,9 +710,9 @@ export default function OiacIaChat({
                             className="grid size-10 place-items-center rounded-lg bg-laranja text-white transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-laranja"
                         >
                             <PanelLeftOpen size={20} />
-                        </button>
+                        </BotaoComTitulo>
                         <span className="rotate-180 font-display text-xs font-bold uppercase tracking-[0.18em] text-laranja [writing-mode:vertical-rl]">
-                            Oiac IA
+                            LuminaIA
                         </span>
                     </div>
                 ) : (
@@ -719,11 +721,11 @@ export default function OiacIaChat({
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-accent">
-                                        Oiac IA
+                                        LuminaIA
                                     </span>
                                     <h1 className="mt-2 font-display text-2xl font-bold">Conversas</h1>
                                 </div>
-                                <button
+                                <BotaoComTitulo
                                     type="button"
                                     onClick={alternarPainelConversas}
                                     aria-controls="painel-conversas-oiac"
@@ -733,7 +735,7 @@ export default function OiacIaChat({
                                     className="grid size-10 shrink-0 place-items-center rounded-lg bg-laranja text-white transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-laranja"
                                 >
                                     <PanelLeftClose size={20} />
-                                </button>
+                                </BotaoComTitulo>
                             </div>
 
                             <label
@@ -781,7 +783,7 @@ export default function OiacIaChat({
                                             const ativa = conversaSelecionada?.id === conversa.id;
 
                                             return (
-                                                <button
+                                                <BotaoComTitulo
                                                     key={conversa.id}
                                                     type="button"
                                                     onClick={() => selecionarConversaAvulsa(conversa)}
@@ -797,7 +799,7 @@ export default function OiacIaChat({
                                                     <span className="text-xs font-semibold">
                                                         {formatarData(conversa.updated_at ?? conversa.created_at)}
                                                     </span>
-                                                </button>
+                                                </BotaoComTitulo>
                                             );
                                         })}
                                     </div>
@@ -841,7 +843,7 @@ export default function OiacIaChat({
                                             }
                                         }}
                                     />
-                                    <button
+                                    <BotaoComTitulo
                                         className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-brand text-white transition hover:bg-brand-strong dark:text-preto disabled:cursor-not-allowed disabled:opacity-50"
                                         type="button"
                                         disabled={salvandoNomeConversa || !nomeConversaEmEdicao.trim()}
@@ -849,8 +851,8 @@ export default function OiacIaChat({
                                         aria-label="Salvar nome da conversa"
                                     >
                                         {salvandoNomeConversa ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
-                                    </button>
-                                    <button
+                                    </BotaoComTitulo>
+                                    <BotaoComTitulo
                                         className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg text-muted transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
                                         type="button"
                                         disabled={salvandoNomeConversa}
@@ -858,7 +860,7 @@ export default function OiacIaChat({
                                         aria-label="Cancelar edição do nome da conversa"
                                     >
                                         <X size={18} />
-                                    </button>
+                                    </BotaoComTitulo>
                                     {totalPaginasAtual > 0 ? (
                                         <span className="shrink-0 text-sm font-semibold text-muted">
                                             {totalPaginasAtual} {totalPaginasAtual === 1 ? "página" : "páginas"}
@@ -876,14 +878,14 @@ export default function OiacIaChat({
                                         </span>
                                     ) : null}
                                     {conversaSelecionadaEhAvulsa ? (
-                                        <button
+                                        <BotaoComTitulo
                                             className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg text-muted transition hover:border-accent hover:text-accent"
                                             type="button"
                                             onClick={iniciarEdicaoNomeConversa}
                                             aria-label="Editar nome da conversa"
                                         >
                                             <Edit2 size={16} />
-                                        </button>
+                                        </BotaoComTitulo>
                                     ) : null}
                                 </div>
                             )}
@@ -895,7 +897,7 @@ export default function OiacIaChat({
 
                     <div className="flex items-center gap-2">
                         {conversaSelecionada ? (
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex size-10 items-center justify-center rounded-lg border border-line bg-input-bg text-muted transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
                                 type="button"
                                 disabled={enviandoMensagem || criandoConversa}
@@ -903,7 +905,7 @@ export default function OiacIaChat({
                                 aria-label="Apagar conversa"
                             >
                                 <Trash2 size={18} />
-                            </button>
+                            </BotaoComTitulo>
                         ) : null}
                     </div>
                 </header>
@@ -1005,14 +1007,14 @@ export default function OiacIaChat({
                                             }
                                         }}
                                     />
-                                    <button
+                                    <BotaoComTitulo
                                         className="inline-flex size-12 shrink-0 items-center justify-center rounded-lg bg-brand text-background transition hover:bg-brand-strong dark:text-preto disabled:cursor-not-allowed disabled:opacity-55"
                                         type="submit"
                                         disabled={!mensagem.trim() || enviandoMensagem}
                                         aria-label="Enviar mensagem"
                                     >
                                         {enviandoMensagem ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
-                                    </button>
+                                    </BotaoComTitulo>
                                 </div>
                             </form>
                         </section>
@@ -1042,7 +1044,7 @@ function BotaoAbaConversas({
     onClick: () => void;
 }) {
     return (
-        <button
+        <BotaoComTitulo
             type="button"
             className={`h-9 rounded-md px-3 font-display text-xs font-bold transition ${
                 ativo ? "bg-brand/75 text-white dark:text-preto" : "text-muted hover:bg-subtle-hover hover:text-ink"
@@ -1051,7 +1053,7 @@ function BotaoAbaConversas({
             onClick={onClick}
         >
             {label}
-        </button>
+        </BotaoComTitulo>
     );
 }
 
@@ -1094,7 +1096,7 @@ function ListaConversasAgrupadas({
                                     const ativa = item.backendDocumentId && conversaSelecionadaId === item.backendDocumentId;
 
                                     return (
-                                        <button
+                                        <BotaoComTitulo
                                             key={item.id}
                                             type="button"
                                             disabled={!item.available}
@@ -1116,7 +1118,7 @@ function ListaConversasAgrupadas({
                                                     ? item.fileName || formatarData(item.updatedAt) || "PDF disponível"
                                                     : "Sem PDF"}
                                             </span>
-                                        </button>
+                                        </BotaoComTitulo>
                                     );
                                 })}
                             </div>
@@ -1175,7 +1177,7 @@ function ListaMensagens({
                     <CabecalhoMensagem ia data="" />
                     <div className="flex items-center gap-2 text-sm font-semibold text-muted">
                         <Loader2 className="animate-spin text-accent" size={18} />
-                        <span>A Oiac IA está analisando este documento.</span>
+                        <span>A LuminaIA está analisando este documento.</span>
                     </div>
                 </article>
             ) : null}
@@ -1318,8 +1320,9 @@ function TaxonomiaAnaliseColapsavel({
 
     return (
         <section className="border-t border-line pt-4">
-            <button
+            <BotaoComTitulo
                 aria-expanded={aberta}
+                title={aberta ? "Recolher detalhes da taxonomia" : "Expandir detalhes da taxonomia"}
                 className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-sm font-display text-left text-base font-bold text-ink outline-none transition hover:text-brand focus-visible:ring-2 focus-visible:ring-brand/70"
                 type="button"
                 onClick={() => setAberta((atual) => !atual)}
@@ -1333,7 +1336,7 @@ function TaxonomiaAnaliseColapsavel({
                         size={18}
                     />
                 </span>
-            </button>
+            </BotaoComTitulo>
 
             <AnimatePresence initial={false}>
                 {aberta ? (
@@ -1370,7 +1373,7 @@ function TaxonomiaAnaliseColapsavel({
                                         ) : null}
                                         {criterio.evaluation?.feedback ? (
                                             <div className="grid gap-1 text-sm leading-6 text-ink">
-                                                <span className="font-bold">Feedback da Oiac IA</span>
+                                                <span className="font-bold">Feedback da LuminaIA</span>
                                                 <MarkdownAnalise className="text-justify" compacto>
                                                     {criterio.evaluation.feedback}
                                                 </MarkdownAnalise>
@@ -1381,7 +1384,7 @@ function TaxonomiaAnaliseColapsavel({
                                                 <span className="font-bold text-ink">Evidências no documento</span>
                                                 <div className="flex flex-wrap gap-2">
                                                     {criterio.evaluation.references.map((referencia, indiceReferencia) => (
-                                                        <button
+                                                        <BotaoComTitulo
                                                             className="inline-flex items-center gap-1 rounded-md border border-brand/45 bg-subtle-hover px-2 py-1 text-xs font-bold text-brand transition hover:border-brand hover:bg-brand hover:text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
                                                             key={`${referencia.chunkId ?? "pagina"}-${referencia.page}-${indiceReferencia}`}
                                                             type="button"
@@ -1390,7 +1393,7 @@ function TaxonomiaAnaliseColapsavel({
                                                         >
                                                             <MapPin aria-hidden="true" size={14} />
                                                             Página {referencia.page + 1}
-                                                        </button>
+                                                        </BotaoComTitulo>
                                                     ))}
                                                 </div>
                                             </div>
@@ -1460,7 +1463,7 @@ function CabecalhoMensagem({ data, ia }: { data: string; ia: boolean }) {
                 {ia ? <Bot size={22} /> : <UserRound size={22} />}
             </span>
             <span className="rounded-full border border-line bg-input-bg px-3 py-1 font-display text-xs font-bold uppercase tracking-[0.14em] text-ink">
-                {ia ? "Oiac IA" : "Usuário"}
+                {ia ? "LuminaIA" : "Usuário"}
             </span>
             {data ? <span className="text-xs font-semibold text-muted">{formatarData(data)}</span> : null}
         </div>

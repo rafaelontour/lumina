@@ -25,7 +25,7 @@ export const itensMenu: ItemMenu[] = [
         icone: Home,
     },
     {
-        nome: "Oiac IA",
+        nome: "LuminaIA",
         href: "/oiac-ia",
         icone: Bot,
     }, 

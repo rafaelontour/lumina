@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import dynamic from "next/dynamic";
 import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
@@ -29,6 +31,7 @@ import ConfirmarRemocaoOrientandoDialog from "@/app/components/ConfirmarRemocaoO
 import ConviteOrientandoDialog from "@/app/components/ConviteOrientandoDialog";
 import LinksAtivosDialog from "@/app/components/LinksAtivosDialog";
 import MarkdownAnalise from "@/app/components/MarkdownAnalise";
+import StudyGuideWorkspace from "@/app/components/StudyGuideWorkspace";
 import ResultadoAnaliseTipificacao, {
     calcularNotaMediaRelease,
     classeNotaMedia,
@@ -337,23 +340,23 @@ export default function DocumentosOrientandosWorkspace() {
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                    <button
+                    <BotaoComTitulo
                         className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-input-bg px-3 font-display font-semibold transition hover:border-brand hover:bg-subtle-hover"
                         type="button"
                         onClick={() => setLinksAtivosAbertos(true)}
                     >
                         <Link2 size={17} />
                         Links ativos
-                    </button>
-                    <button
+                    </BotaoComTitulo>
+                    <BotaoComTitulo
                         className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-3 font-display font-semibold text-background transition hover:bg-brand-strong"
                         type="button"
                         onClick={() => setConviteAberto(true)}
                     >
                         <UserPlus size={17} />
                         Convidar orientando
-                    </button>
-                    <button
+                    </BotaoComTitulo>
+                    <BotaoComTitulo
                         className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-input-bg px-3 font-semibold transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
                         type="button"
                         disabled={carregando || atualizando}
@@ -361,7 +364,7 @@ export default function DocumentosOrientandosWorkspace() {
                     >
                         <RefreshCw className={carregando || atualizando ? "animate-spin" : ""} size={17} />
                         Atualizar
-                    </button>
+                    </BotaoComTitulo>
                 </div>
             </header>
 
@@ -459,7 +462,7 @@ function CartaoOrientandoLista({
     return (
         <article aria-busy={removendo} className="min-w-0 overflow-hidden rounded-xl border border-line bg-panel p-4 shadow-[0_18px_44px_-28px_var(--chrome-shadow)]">
             <div className="flex min-w-0 items-center gap-3">
-                <AvatarUsuario className="size-10" usuario={orientando.advisee} />
+                <AvatarUsuario className="size-10" usuario={orientando.advisee} visualizavel />
                 <div className="min-w-0">
                     <h2 className="truncate font-display text-lg font-bold" title={orientando.advisee.username}>
                         {orientando.advisee.username}
@@ -471,15 +474,15 @@ function CartaoOrientandoLista({
                 </div>
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                <button
+                <BotaoComTitulo
                     className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-input-bg px-3 font-display text-sm font-semibold transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
                     type="button"
                     disabled={removendo}
                     onClick={aoVerPerfil}
                 >
                     Ver perfil
-                </button>
-                <button
+                </BotaoComTitulo>
+                <BotaoComTitulo
                     className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-accent/35 px-3 font-display text-sm font-semibold text-accent transition hover:bg-accent/8 disabled:cursor-not-allowed disabled:opacity-55"
                     type="button"
                     disabled={remocaoBloqueada}
@@ -487,13 +490,14 @@ function CartaoOrientandoLista({
                 >
                     {removendo ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
                     {removendo ? "Removendo…" : "Remover orientando"}
-                </button>
+                </BotaoComTitulo>
             </div>
         </article>
     );
 }
 
 function ModalPerfilOrientando({ monitoramento, aoFechar }: { monitoramento: MonitoramentoOrientando; aoFechar: () => void }) {
+    const { usuario } = useAuth();
     const [abaAtiva, setAbaAtiva] = useState<AbaPerfil>("oiac-ia");
     const [buscaProjeto, setBuscaProjeto] = useState("");
     const [projetoSelecionadoChave, setProjetoSelecionadoChave] = useState<string | null>(null);
@@ -676,6 +680,16 @@ function ModalPerfilOrientando({ monitoramento, aoFechar }: { monitoramento: Mon
         return projetos.filter((projeto) => normalizarTexto(projeto.nome).includes(termo));
     }, [buscaProjeto, projetos]);
     const projetoSelecionado = projetos.find((projeto) => projeto.chave === projetoSelecionadoChave) ?? null;
+    const projetoBackendSelecionado = useMemo(() => {
+        if (!projetoSelecionado || catalogoGrupos.status !== "pronto") return null;
+        const correspondencias = catalogoGrupos.projetos.filter(
+            (projeto) => projeto.created_by === orientando.advisee.id && normalizarTexto(projeto.name) === projetoSelecionado.chave
+        );
+        return correspondencias.length === 1 ? correspondencias[0] : null;
+    }, [catalogoGrupos, orientando.advisee.id, projetoSelecionado]);
+    const grupoBackendSelecionado = catalogoGrupos.status === "pronto" && projetoBackendSelecionado?.document_group_id
+        ? catalogoGrupos.grupos.find((grupo) => grupo.id === projetoBackendSelecionado.document_group_id) ?? null
+        : null;
     const configuracaoTipos = useMemo(() => {
         if (!projetoSelecionado) return { tipos: [] as TipoDocumentoProjeto[], carregando: false, aviso: "" };
         if (catalogoGrupos.status === "aguardando" || catalogoGrupos.status === "carregando") {
@@ -693,15 +707,7 @@ function ModalPerfilOrientando({ monitoramento, aoFechar }: { monitoramento: Mon
         let grupoCatalogo: GrupoDocumento | undefined;
 
         if (catalogoGrupos.status === "pronto") {
-            const projetosComMesmoNome = catalogoGrupos.projetos.filter(
-                (projeto) => normalizarTexto(projeto.name) === projetoSelecionado.chave
-            );
-            const projetoCatalogo =
-                projetosComMesmoNome.find((projeto) => projeto.created_by === orientando.advisee.id) ??
-                (projetosComMesmoNome.length === 1 ? projetosComMesmoNome[0] : undefined);
-            const grupoDoProjeto = projetoCatalogo?.document_group_id
-                ? catalogoGrupos.grupos.find((grupo) => grupo.id === projetoCatalogo.document_group_id)
-                : undefined;
+            const grupoDoProjeto = grupoBackendSelecionado ?? undefined;
             const grupoPeloValorRetornado = catalogoGrupos.grupos.find((grupo) =>
                 gruposRetornados.some(
                     (grupoRetornado) =>
@@ -740,7 +746,7 @@ function ModalPerfilOrientando({ monitoramento, aoFechar }: { monitoramento: Mon
                     ? `${catalogoGrupos.mensagem} ${complemento}`
                     : `${detalheProjetos}Não foi possível identificar todos os tipos obrigatórios deste grupo. ${complemento}`,
         };
-    }, [catalogoGrupos, orientando.advisee.id, projetoSelecionado]);
+    }, [catalogoGrupos, grupoBackendSelecionado, projetoSelecionado]);
     const tipoSelecionadoChaveAtual =
         tipoSelecionado && tipoSelecionado.projetoChave === projetoSelecionado?.chave ? tipoSelecionado.tipoChave : null;
     const tipoAtivoChave =
@@ -851,7 +857,7 @@ function ModalPerfilOrientando({ monitoramento, aoFechar }: { monitoramento: Mon
             >
                 <header className="flex items-start justify-between gap-4 border-b border-line p-4 sm:p-5">
                     <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-                        <AvatarUsuario className="size-14 shrink-0 sm:size-16" usuario={orientando.advisee} />
+                        <AvatarUsuario className="size-14 shrink-0 sm:size-16" usuario={orientando.advisee} visualizavel />
                         <div className="min-w-0">
                             <h2
                                 className="truncate font-display text-xl font-bold outline-none sm:text-2xl"
@@ -868,25 +874,25 @@ function ModalPerfilOrientando({ monitoramento, aoFechar }: { monitoramento: Mon
                             <p className="mt-1 text-sm text-muted">{formatarDataVinculo(vinculoCriadoEm)}</p>
                         </div>
                     </div>
-                    <button
+                    <BotaoComTitulo
                         aria-label="Fechar perfil"
                         className="grid size-9 shrink-0 place-items-center rounded-lg border border-line bg-input-bg text-muted transition hover:border-brand hover:bg-subtle-hover hover:text-ink"
                         type="button"
                         onClick={aoFechar}
                     >
                         <X size={18} />
-                    </button>
+                    </BotaoComTitulo>
                 </header>
 
                 <div aria-label="Conteúdo do perfil" className="flex gap-1 border-b border-line bg-input-bg px-4 pt-2 sm:px-5" role="tablist">
                     {([
-                        { chave: "oiac-ia", rotulo: "OIAC IA" },
+                        { chave: "oiac-ia", rotulo: "LuminaIA" },
                         { chave: "grupo-documentos", rotulo: "Grupo de documentos" },
                     ] satisfies Array<{ chave: AbaPerfil; rotulo: string }>).map((aba, indice) => {
                         const selecionada = abaAtiva === aba.chave;
 
                         return (
-                            <button
+                            <BotaoComTitulo
                                 aria-controls={`painel-perfil-${idTabsPrincipais}-${aba.chave}`}
                                 aria-selected={selecionada}
                                 className={`-mb-px min-h-11 border-b-2 px-4 py-2 font-display text-sm font-bold transition focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand ${
@@ -903,7 +909,7 @@ function ModalPerfilOrientando({ monitoramento, aoFechar }: { monitoramento: Mon
                                 onKeyDown={(evento) => controlarTeclaAbaPrincipal(evento, indice)}
                             >
                                 {aba.rotulo}
-                            </button>
+                            </BotaoComTitulo>
                         );
                     })}
                 </div>
@@ -962,7 +968,7 @@ function ModalPerfilOrientando({ monitoramento, aoFechar }: { monitoramento: Mon
 
                                         return (
                                             <li key={projeto.chave}>
-                                                <button
+                                                <BotaoComTitulo
                                                     aria-controls="historico-projeto-orientando"
                                                     aria-pressed={selecionado}
                                                     className={`flex w-full min-w-0 items-center gap-3 rounded-lg border px-3 py-3 text-left transition ${
@@ -983,7 +989,7 @@ function ModalPerfilOrientando({ monitoramento, aoFechar }: { monitoramento: Mon
                                                         </span>
                                                     </span>
                                                     <ChevronRight className="shrink-0 text-muted" size={17} />
-                                                </button>
+                                                </BotaoComTitulo>
                                             </li>
                                         );
                                     })}
@@ -1000,6 +1006,10 @@ function ModalPerfilOrientando({ monitoramento, aoFechar }: { monitoramento: Mon
                         {projetoSelecionado ? (
                             <HistoricoProjeto
                                 projeto={projetoSelecionado}
+                                projectId={projetoBackendSelecionado?.id}
+                                studyGroup={grupoBackendSelecionado}
+                                currentUserId={usuario?.id}
+                                canManageGroup={usuario?.access_level === "ADMIN"}
                                 tiposDocumento={configuracaoTipos.tipos}
                                 tipoAtivoChave={tipoAtivoChave}
                                 carregandoTipos={configuracaoTipos.carregando}
@@ -1058,7 +1068,7 @@ function PainelConversasOiac({
                 <header>
                     <h3 className="font-display text-lg font-bold">Conversas</h3>
                     <p className="mt-1 text-sm leading-6 text-muted">
-                        Documentos do tipo OIAC IA deste orientando.
+                        Conversas da LuminaIA deste orientando.
                     </p>
                 </header>
 
@@ -1067,7 +1077,7 @@ function PainelConversasOiac({
                         <div className="grid min-h-36 place-items-center rounded-xl border border-dashed border-line bg-input-bg p-5 text-center text-muted">
                             <div className="grid justify-items-center gap-2">
                                 <MessageSquare size={28} />
-                                <p className="text-sm">Nenhum documento do tipo OIAC IA encontrado.</p>
+                                <p className="text-sm">Nenhuma conversa da LuminaIA encontrada.</p>
                             </div>
                         </div>
                     ) : (
@@ -1082,7 +1092,7 @@ function PainelConversasOiac({
 
                                 return (
                                     <li key={documento.id}>
-                                        <button
+                                        <BotaoComTitulo
                                             aria-controls="transcricao-conversa-orientando"
                                             aria-pressed={selecionada}
                                             className={`grid w-full min-w-0 gap-1 rounded-lg border p-3 text-left transition ${
@@ -1100,7 +1110,7 @@ function PainelConversasOiac({
                                             <span className="text-xs font-semibold text-muted">
                                                 {formatarDataHora(documento.updated_at ?? documento.created_at)}
                                             </span>
-                                        </button>
+                                        </BotaoComTitulo>
                                     </li>
                                 );
                             })}
@@ -1131,7 +1141,7 @@ function PainelConversasOiac({
                         <EstadoConversa
                             icone={<MessageSquare size={34} />}
                             titulo="Selecione uma conversa"
-                            descricao="Escolha um documento para visualizar as mensagens trocadas entre o orientando e a OIAC IA."
+                            descricao="Escolha uma conversa para visualizar as mensagens trocadas entre o orientando e a LuminaIA."
                         />
                     ) : (
                         <div className="flex min-h-full w-full flex-col gap-4">
@@ -1182,7 +1192,7 @@ function ResultadoIaConversa({ estadoRelease }: { estadoRelease?: EstadoReleaseD
             <article className="grid gap-2 rounded-lg border border-line bg-panel p-4 text-muted">
                 <div className="flex items-center gap-2 font-display text-sm font-bold text-ink">
                     <Bot className="text-accent" size={19} />
-                    Resultado da OIAC IA
+                    Resultado da LuminaIA
                 </div>
                 <p className="text-sm leading-6">{estadoRelease.mensagem}</p>
             </article>
@@ -1217,7 +1227,7 @@ function MensagemConversaOrientando({ mensagem }: { mensagem: MensagemDocumento 
                     {enviadaPelaIa ? <Bot size={19} /> : <UserRound size={19} />}
                 </span>
                 <span className="rounded-full border border-line bg-input-bg px-2.5 py-1 font-display text-xs font-bold uppercase tracking-[0.12em]">
-                    {enviadaPelaIa ? "OIAC IA" : "Orientando"}
+                    {enviadaPelaIa ? "LuminaIA" : "Orientando"}
                 </span>
                 <span className="text-xs font-semibold text-muted">{formatarDataHora(mensagem.created_at)}</span>
             </div>
@@ -1283,6 +1293,10 @@ function EstadoSelecaoProjeto({ possuiProjetos }: { possuiProjetos: boolean }) {
 
 function HistoricoProjeto({
     projeto,
+    projectId,
+    studyGroup,
+    currentUserId,
+    canManageGroup,
     tiposDocumento,
     tipoAtivoChave,
     carregandoTipos,
@@ -1292,6 +1306,10 @@ function HistoricoProjeto({
     aoVerDocumento,
 }: {
     projeto: ProjetoOrientando;
+    projectId?: string;
+    studyGroup?: GrupoDocumento | null;
+    currentUserId?: string;
+    canManageGroup: boolean;
     tiposDocumento: TipoDocumentoProjeto[];
     tipoAtivoChave: string | null;
     carregandoTipos: boolean;
@@ -1334,6 +1352,12 @@ function HistoricoProjeto({
 
             {avisoTipos ? <Aviso descricao={avisoTipos} /> : null}
 
+            {projectId ? (
+                <StudyGuideWorkspace key={projectId} projectId={projectId} projectOwnerId={null} currentUserId={currentUserId} group={studyGroup} readOnly canManageGroup={canManageGroup} />
+            ) : (
+                <Aviso descricao="Não foi possível associar este projeto do orientando a um identificador de projeto acessível; o guia não foi carregado." />
+            )}
+
             {carregandoTipos ? (
                 <div className="grid min-h-40 place-items-center rounded-xl border border-dashed border-line bg-input-bg p-5 text-center" role="status">
                     <span className="inline-flex items-center gap-2 text-sm font-semibold text-muted">
@@ -1356,7 +1380,7 @@ function HistoricoProjeto({
                                 ).length;
 
                                 return (
-                                    <button
+                                    <BotaoComTitulo
                                         aria-controls={`painel-tipo-${idTabs}`}
                                         aria-selected={selecionado}
                                         className={`-mb-px inline-flex min-h-10 items-center gap-2 border-b-2 px-3 py-2 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand ${
@@ -1376,7 +1400,7 @@ function HistoricoProjeto({
                                         <span className="rounded-full border border-current/25 px-1.5 py-0.5 text-[0.65rem] leading-none">
                                             {quantidade}
                                         </span>
-                                    </button>
+                                    </BotaoComTitulo>
                                 );
                             })}
                         </div>
@@ -1513,7 +1537,7 @@ function HistoricoDocumento({
                 </span>
             </div>
 
-            <button
+            <BotaoComTitulo
                 className="absolute right-4 bottom-4 inline-flex h-9 w-fit items-center gap-2 rounded-lg border border-line bg-input-bg px-3 text-sm font-semibold text-ink transition hover:border-brand hover:bg-subtle-hover disabled:cursor-wait disabled:opacity-55"
                 type="button"
                 disabled={carregandoRelease}
@@ -1521,7 +1545,7 @@ function HistoricoDocumento({
             >
                 <Eye size={16} />
                 Ver documento
-            </button>
+            </BotaoComTitulo>
         </article>
     );
 }
@@ -1656,14 +1680,14 @@ function ModalDocumento({
                             {documento.name}
                         </h2>
                     </div>
-                    <button
+                    <BotaoComTitulo
                         aria-label="Fechar documento"
                         className="grid size-9 shrink-0 place-items-center rounded-lg border border-line bg-input-bg text-muted transition hover:border-brand hover:bg-subtle-hover hover:text-ink"
                         type="button"
                         onClick={aoFechar}
                     >
                         <X size={18} />
-                    </button>
+                    </BotaoComTitulo>
                 </header>
 
                 <div className="min-h-0 overflow-y-auto bg-background lg:overflow-hidden">

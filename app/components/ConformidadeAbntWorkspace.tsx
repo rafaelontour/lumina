@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, BookCheck, CheckCircle2, ChevronDown, Eye, FileCheck2, FileText, FileWarning, History, Loader2, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -678,7 +680,7 @@ export default function ConformidadeAbntWorkspace() {
                                         const documentoAnalisado = !documentoProcessando && Boolean(documento.documentId && resultadosPorDocumento[documento.documentId]?.possuiAnaliseHistorica);
                                         const documentoSelecionado = documento.id === alvoSelecionadoId;
 
-                                        return <button
+                                        return <BotaoComTitulo
                                             className={`grid gap-1 rounded-lg border p-3 text-left transition ${documentoProcessando ? documentoSelecionado ? "border-brand bg-brand/15 text-ink" : "border-brand/60 bg-brand/10 text-ink hover:border-brand" : documentoSelecionado ? "border-brand bg-subtle-hover text-ink" : "border-line bg-input-bg text-muted hover:border-brand hover:text-ink"}`}
                                             key={documento.id}
                                             type="button"
@@ -690,7 +692,7 @@ export default function ConformidadeAbntWorkspace() {
                                             {documento.novaVersaoEmAnalise ? <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-line bg-panel px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-muted"><Loader2 className="animate-spin motion-reduce:animate-none" size={12} />Nova versão em análise</span> : null}
                                             {documentoProcessando ? <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-brand/40 bg-panel px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-ink"><Loader2 className="animate-spin motion-reduce:animate-none" size={12} />Em análise</span> : null}
                                             {documentoAnalisado ? <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-brand/40 bg-subtle-hover px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-ink"><FileCheck2 size={12} />Analisado</span> : null}
-                                        </button>;
+                                        </BotaoComTitulo>;
                                     })()
                                 ))}
                             </section>
@@ -705,7 +707,7 @@ export default function ConformidadeAbntWorkspace() {
                                     <strong className="block truncate font-display text-sm text-ink" title={documentoSelecionado.fileName}>{documentoSelecionado.fileName}</strong>
                                     <span className="mt-1 block text-sm text-muted">{documentoSelecionado.novaVersaoEmAnalise ? "Uma nova versão foi enviada em Documentos. Você já pode iniciar uma análise para ela; o último relatório permanece visível como referência." : versaoJaAnalisada ? "Esta versão já possui uma análise ABNT. Envie uma nova versão em Documentos para habilitar outra análise." : "A referência ABNT é definida pelo sistema."}</span>
                                 </div>
-                                <button
+                                <BotaoComTitulo
                                     className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto"
                                     type="button"
                                     disabled={iniciandoAnalise || analiseProcessando || versaoJaAnalisada || !elegibilidadeResolvida || !documentoSelecionado.documentId || !documentoSelecionado.filePath}
@@ -713,10 +715,10 @@ export default function ConformidadeAbntWorkspace() {
                                 >
                                     {iniciandoAnalise || analiseProcessando ? <Loader2 className="animate-spin motion-reduce:animate-none" size={18} /> : <FileCheck2 size={18} />}
                                     {iniciandoAnalise ? "Iniciando análise..." : analiseProcessando ? "Análise em andamento" : versaoJaAnalisada ? "Análise já realizada" : "Iniciar análise"}
-                                </button>
-                                <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-4 font-display text-sm font-semibold text-ink transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55" type="button" disabled={!documentoSelecionado.documentId} onClick={() => void abrirHistorico()}>
+                                </BotaoComTitulo>
+                                <BotaoComTitulo className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-4 font-display text-sm font-semibold text-ink transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55" type="button" disabled={!documentoSelecionado.documentId} onClick={() => void abrirHistorico()}>
                                     <History size={18} /> Histórico
-                                </button>
+                                </BotaoComTitulo>
                             </div>
                         ) : null}
                         {documentoSelecionado && statusResultadoVisivel === "loading" && !resultadoVisivel ? <Estado titulo="Consultando a conformidade ABNT..." icone={<Loader2 className="animate-spin motion-reduce:animate-none" size={28} />} /> : null}
@@ -747,7 +749,7 @@ export default function ConformidadeAbntWorkspace() {
                                 <h2 className="font-display text-xl font-bold text-ink" id="titulo-historico-abnt">Histórico de análises ABNT</h2>
                                 <p className="mt-1 truncate text-sm text-muted" title={documentoSelecionado?.fileName}>{documentoSelecionado?.fileName ?? "Documento selecionado"}</p>
                             </div>
-                            <button aria-label="Fechar histórico" className="grid size-9 place-items-center rounded-lg border border-line text-muted transition hover:bg-input-bg hover:text-ink" type="button" onClick={() => setHistoricoAberto(false)}><X size={18} /></button>
+                            <BotaoComTitulo aria-label="Fechar histórico" className="grid size-9 place-items-center rounded-lg border border-line text-muted transition hover:bg-input-bg hover:text-ink" type="button" onClick={() => setHistoricoAberto(false)}><X size={18} /></BotaoComTitulo>
                         </header>
                         <div className="min-h-0 overflow-y-auto p-5">
                             {carregandoHistorico ? <Estado titulo="Carregando histórico de análises..." icone={<Loader2 className="animate-spin motion-reduce:animate-none" size={28} />} /> : null}

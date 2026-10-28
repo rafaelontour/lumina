@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Check, Copy, Loader2, Mail, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
@@ -149,7 +151,7 @@ export default function ConviteOrientandoDialog({ emailsOrientandosAtivos, aoFec
                             Autorize um e-mail e compartilhe o link gerado pelo canal que preferir.
                         </p>
                     </div>
-                    <button
+                    <BotaoComTitulo
                         aria-label="Fechar convite"
                         className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg transition hover:border-brand hover:bg-subtle-hover disabled:opacity-50"
                         disabled={enviando}
@@ -157,7 +159,7 @@ export default function ConviteOrientandoDialog({ emailsOrientandosAtivos, aoFec
                         type="button"
                     >
                         <X size={18} />
-                    </button>
+                    </BotaoComTitulo>
                 </header>
 
                 <div className="grid gap-5 p-5">
@@ -183,14 +185,14 @@ export default function ConviteOrientandoDialog({ emailsOrientandosAtivos, aoFec
 
                             {erro ? <p className="rounded-lg border border-accent/40 bg-accent/8 px-3 py-2.5 text-sm font-medium text-accent" role="alert">{erro}</p> : null}
 
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display font-semibold text-background transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60"
                                 disabled={enviando}
                                 type="submit"
                             >
                                 {enviando ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
                                 {enviando ? "Autorizando…" : "Autorizar e gerar link"}
-                            </button>
+                            </BotaoComTitulo>
                         </form>
                     ) : (
                         <div className="grid gap-4">
@@ -220,13 +222,13 @@ export default function ConviteOrientandoDialog({ emailsOrientandosAtivos, aoFec
                             ) : null}
 
                             <div className="flex flex-wrap justify-end gap-3">
-                                <button className="h-10 rounded-lg border border-line bg-input-bg px-4 font-semibold transition hover:border-brand hover:bg-subtle-hover" onClick={aoFechar} type="button">
+                                <BotaoComTitulo className="h-10 rounded-lg border border-line bg-input-bg px-4 font-semibold transition hover:border-brand hover:bg-subtle-hover" onClick={aoFechar} type="button">
                                     Concluir
-                                </button>
-                                <button className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 font-semibold text-background transition hover:bg-brand-strong" onClick={() => void copiarLink()} type="button">
+                                </BotaoComTitulo>
+                                <BotaoComTitulo className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 font-semibold text-background transition hover:bg-brand-strong" onClick={() => void copiarLink()} type="button">
                                     {copiado ? <Check size={17} /> : <Copy size={17} />}
                                     {copiado ? "Link copiado" : "Copiar link"}
-                                </button>
+                                </BotaoComTitulo>
                             </div>
                         </div>
                     )}

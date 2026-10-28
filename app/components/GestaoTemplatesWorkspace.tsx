@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, FilePlus2, FileText, Loader2, Pencil, RefreshCw, Save, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
@@ -179,7 +181,7 @@ export default function GestaoTemplatesWorkspace() {
                         Cadastre e mantenha os PDFs institucionais disponíveis para as análises de conformidade.
                     </p>
                 </div>
-                <button
+                <BotaoComTitulo
                     className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-input-bg px-3 font-semibold transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
                     type="button"
                     disabled={carregando || atualizando}
@@ -187,7 +189,7 @@ export default function GestaoTemplatesWorkspace() {
                 >
                     <RefreshCw className={carregando || atualizando ? "animate-spin" : ""} size={17} />
                     Atualizar
-                </button>
+                </BotaoComTitulo>
             </header>
 
             <form
@@ -210,7 +212,7 @@ export default function GestaoTemplatesWorkspace() {
                                     disabled={salvandoNovo}
                                 />
                                 {novoNome ? (
-                                    <button
+                                    <BotaoComTitulo
                                         className="absolute inset-y-0 right-0 grid w-10 place-items-center text-muted transition hover:text-ink disabled:cursor-not-allowed"
                                         type="button"
                                         aria-label="Limpar nome do template"
@@ -219,17 +221,17 @@ export default function GestaoTemplatesWorkspace() {
                                         disabled={salvandoNovo}
                                     >
                                         <X size={17} />
-                                    </button>
+                                    </BotaoComTitulo>
                                 ) : null}
                             </span>
-                            <button
+                            <BotaoComTitulo
                                 className="h-10 shrink-0 rounded-lg border border-line bg-input-bg px-3 text-xs font-semibold text-accent transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
                                 type="button"
                                 onClick={() => novoArquivo && setNovoNome(nomeSemExtensao(novoArquivo))}
                                 disabled={!novoArquivo || salvandoNovo}
                             >
                                 Usar nome do arquivo
-                            </button>
+                            </BotaoComTitulo>
                         </span>
                     </label>
                 </div>
@@ -244,7 +246,7 @@ export default function GestaoTemplatesWorkspace() {
                             onChange={selecionarArquivoNovo}
                             disabled={salvandoNovo}
                         />
-                        <button
+                        <BotaoComTitulo
                             className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md bg-brand px-3 text-xs font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto"
                             type="button"
                             onClick={() => inputNovoArquivo.current?.click()}
@@ -252,20 +254,20 @@ export default function GestaoTemplatesWorkspace() {
                         >
                             <Upload size={15} />
                             Escolher arquivo
-                        </button>
+                        </BotaoComTitulo>
                         <span className="min-w-0 flex-1 truncate text-xs font-normal text-muted" title={novoArquivo?.name}>
                             {novoArquivo?.name ?? "Nenhum PDF selecionado"}
                         </span>
                     </div>
                 </div>
-                <button
+                <BotaoComTitulo
                     className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto"
                     type="submit"
                     disabled={salvandoNovo}
                 >
                     {salvandoNovo ? <Loader2 className="animate-spin" size={17} /> : <FilePlus2 size={17} />}
                     {salvandoNovo ? "Cadastrando..." : "Cadastrar template"}
-                </button>
+                </BotaoComTitulo>
             </form>
 
             {templateEditando ? (
@@ -286,7 +288,7 @@ export default function GestaoTemplatesWorkspace() {
                             <span className="flex items-center gap-2">
                                 <span className="relative min-w-0 flex-1">
                                     {nomeEdicao ? (
-                                        <button
+                                        <BotaoComTitulo
                                             className="absolute inset-y-0 right-0 z-10 grid w-10 place-items-center text-muted transition hover:text-ink disabled:cursor-not-allowed"
                                             type="button"
                                             aria-label="Limpar nome do template"
@@ -295,7 +297,7 @@ export default function GestaoTemplatesWorkspace() {
                                             disabled={salvandoEdicao}
                                         >
                                             <X size={17} />
-                                        </button>
+                                        </BotaoComTitulo>
                                     ) : null}
                                     <input
                                         className="h-10 w-full rounded-lg border border-line bg-panel px-3 pr-10 text-sm font-normal outline-none transition focus:border-brand"
@@ -304,14 +306,14 @@ export default function GestaoTemplatesWorkspace() {
                                         disabled={salvandoEdicao}
                                     />
                                 </span>
-                                <button
+                                <BotaoComTitulo
                                     className="h-10 shrink-0 rounded-lg border border-line bg-panel px-3 text-xs font-semibold text-accent transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
                                     type="button"
                                     onClick={() => arquivoEdicao && setNomeEdicao(nomeSemExtensao(arquivoEdicao))}
                                     disabled={!arquivoEdicao || salvandoEdicao}
                                 >
                                     Usar nome do arquivo
-                                </button>
+                                </BotaoComTitulo>
                             </span>
                         </label>
                     </div>
@@ -326,7 +328,7 @@ export default function GestaoTemplatesWorkspace() {
                                 onChange={selecionarArquivoEdicao}
                                 disabled={salvandoEdicao}
                             />
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md bg-brand px-3 text-xs font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto"
                                 type="button"
                                 onClick={() => inputArquivoEdicao.current?.click()}
@@ -334,21 +336,21 @@ export default function GestaoTemplatesWorkspace() {
                             >
                                 <Upload size={15} />
                                 Escolher arquivo
-                            </button>
+                            </BotaoComTitulo>
                             <span className="min-w-0 flex-1 truncate text-xs font-normal text-muted" title={arquivoEdicao?.name}>
                                 {arquivoEdicao?.name ?? "Manter PDF atual"}
                             </span>
                         </div>
                     </div>
-                    <button
+                    <BotaoComTitulo
                         className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto"
                         type="submit"
                         disabled={salvandoEdicao}
                     >
                         {salvandoEdicao ? <Loader2 className="animate-spin" size={17} /> : <Save size={17} />}
                         Salvar
-                    </button>
-                    <button
+                    </BotaoComTitulo>
+                    <BotaoComTitulo
                         className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-4 text-sm font-semibold transition hover:bg-input-bg disabled:cursor-not-allowed disabled:opacity-55"
                         type="button"
                         onClick={cancelarEdicao}
@@ -356,7 +358,7 @@ export default function GestaoTemplatesWorkspace() {
                     >
                         <X size={17} />
                         Cancelar
-                    </button>
+                    </BotaoComTitulo>
                 </form>
             ) : null}
 
@@ -379,12 +381,12 @@ export default function GestaoTemplatesWorkspace() {
                                 </div>
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
-                                <button className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-input-bg px-3 text-sm font-semibold transition hover:border-brand hover:bg-subtle-hover" type="button" onClick={() => iniciarEdicao(template)}>
+                                <BotaoComTitulo className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-input-bg px-3 text-sm font-semibold transition hover:border-brand hover:bg-subtle-hover" type="button" onClick={() => iniciarEdicao(template)}>
                                     <Pencil size={16} /> Editar
-                                </button>
-                                <button className="inline-flex h-9 items-center gap-2 rounded-lg border border-laranja/40 bg-laranja/10 px-3 text-sm font-semibold text-laranja transition hover:bg-laranja/20" type="button" onClick={() => setTemplateParaExcluir(template)}>
+                                </BotaoComTitulo>
+                                <BotaoComTitulo className="inline-flex h-9 items-center gap-2 rounded-lg border border-laranja/40 bg-laranja/10 px-3 text-sm font-semibold text-laranja transition hover:bg-laranja/20" type="button" onClick={() => setTemplateParaExcluir(template)}>
                                     <Trash2 size={16} /> Excluir
-                                </button>
+                                </BotaoComTitulo>
                             </div>
                         </article>
                     ))}
@@ -399,11 +401,11 @@ export default function GestaoTemplatesWorkspace() {
                         <h2 id="titulo-excluir-template" className="font-display text-xl font-bold">Excluir template?</h2>
                         <p className="mt-2 text-sm leading-6 text-muted">O template “{templateParaExcluir.name}” será removido do catálogo e deixará de estar disponível para novas análises.</p>
                         <div className="mt-5 flex justify-end gap-3">
-                            <button className="h-10 rounded-lg border border-line px-4 text-sm font-semibold transition hover:bg-input-bg disabled:cursor-not-allowed disabled:opacity-55" type="button" disabled={excluindo} onClick={() => setTemplateParaExcluir(null)}>Cancelar</button>
-                            <button className="inline-flex h-10 items-center gap-2 rounded-lg bg-laranja px-4 text-sm font-semibold text-preto transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55" type="button" disabled={excluindo} onClick={() => void confirmarExclusao()}>
+                            <BotaoComTitulo className="h-10 rounded-lg border border-line px-4 text-sm font-semibold transition hover:bg-input-bg disabled:cursor-not-allowed disabled:opacity-55" type="button" disabled={excluindo} onClick={() => setTemplateParaExcluir(null)}>Cancelar</BotaoComTitulo>
+                            <BotaoComTitulo className="inline-flex h-10 items-center gap-2 rounded-lg bg-laranja px-4 text-sm font-semibold text-preto transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55" type="button" disabled={excluindo} onClick={() => void confirmarExclusao()}>
                                 {excluindo ? <Loader2 className="animate-spin" size={17} /> : <Trash2 size={17} />}
                                 {excluindo ? "Excluindo..." : "Excluir"}
-                            </button>
+                            </BotaoComTitulo>
                         </div>
                     </section>
                 </div>

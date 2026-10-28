@@ -1,7 +1,9 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, FileUp, GitBranch, Layers3, Loader2, Pencil, Plus, Save, Search, ShieldCheck, Trash2, X } from "lucide-react";
+import { AlertCircle, Download, FileUp, GitBranch, Info, Layers3, Loader2, Pencil, Plus, Save, Search, ShieldCheck, Sparkles, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 
@@ -16,6 +18,7 @@ import {
     atualizarTaxonomia,
     atualizarTipificacao,
     excluirArvoreTipificacao,
+    exportarTipificacoesPdf,
     listarTipificacoes,
     removerRamo,
     removerTaxonomia,
@@ -101,6 +104,8 @@ export default function TipificacoesPage() {
     const [taxonomiaEmDestaque, setTaxonomiaEmDestaque] = useState<string | null>(null);
     const [seletorCriacaoAberto, setSeletorCriacaoAberto] = useState(false);
     const [criacaoDocumentoAberta, setCriacaoDocumentoAberta] = useState(false);
+    const [tipificacaoParaEnriquecer, setTipificacaoParaEnriquecer] = useState<Tipificacao | null>(null);
+    const [exportandoId, setExportandoId] = useState<string | null>(null);
     const [criacaoAberta, setCriacaoAberta] = useState(false);
     const [rascunho, setRascunho] = useState<TipificacaoRascunho>(criarTipificacaoRascunho);
     const [erroRascunho, setErroRascunho] = useState("");
@@ -225,7 +230,34 @@ export default function TipificacoesPage() {
     function abrirCriacaoDocumento() {
         if (!podeExecutarGestao()) return;
         setSeletorCriacaoAberto(false);
+        setTipificacaoParaEnriquecer(null);
         setCriacaoDocumentoAberta(true);
+    }
+
+    function abrirEnriquecimento(tipificacao: Tipificacao) {
+        if (!podeExecutarGestao()) return;
+        setTipificacaoParaEnriquecer(tipificacao);
+        setCriacaoDocumentoAberta(true);
+    }
+
+    async function exportarPdf(tipificacao?: Tipificacao) {
+        if (exportandoId) return;
+        const chave = tipificacao?.id ?? "todas";
+        setExportandoId(chave);
+        const [arquivo, err] = await exportarTipificacoesPdf(tipificacao?.id);
+        setExportandoId(null);
+        if (err || !arquivo) {
+            toast.error(err?.message ?? "Não foi possível exportar o PDF.");
+            return;
+        }
+
+        const url = URL.createObjectURL(arquivo.blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = arquivo.filename;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast.success("PDF preparado para download.");
     }
 
     function abrirEdicaoTipificacao(tipificacao: Tipificacao) {
@@ -569,16 +601,27 @@ export default function TipificacoesPage() {
                         documentos.
                     </p>
                 </div>
-                {podeGerenciar ? (
-                    <button
-                        className="inline-flex h-12 items-center gap-2 rounded-lg bg-brand px-5 font-display text-base font-bold text-white shadow-[0_12px_28px_-16px_var(--brand)] transition hover:bg-brand-strong dark:text-preto"
+                <div className="flex flex-wrap gap-2">
+                    <BotaoComTitulo
+                        className="inline-flex h-12 items-center gap-2 rounded-lg border border-line bg-input-bg px-4 font-display text-sm font-semibold text-ink transition hover:border-brand disabled:opacity-55"
                         type="button"
-                        onClick={abrirCriacao}
+                        disabled={Boolean(exportandoId)}
+                        onClick={() => void exportarPdf()}
                     >
-                        <Plus size={20} />
-                        Nova tipificação
-                    </button>
-                ) : null}
+                        {exportandoId === "todas" ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />}
+                        Exportar árvore PDF
+                    </BotaoComTitulo>
+                    {podeGerenciar ? (
+                        <BotaoComTitulo
+                            className="inline-flex h-12 items-center gap-2 rounded-lg bg-brand px-5 font-display text-base font-bold text-white shadow-[0_12px_28px_-16px_var(--brand)] transition hover:bg-brand-strong dark:text-preto"
+                            type="button"
+                            onClick={abrirCriacao}
+                        >
+                            <Plus size={20} />
+                            Nova tipificação
+                        </BotaoComTitulo>
+                    ) : null}
+                </div>
             </header>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumo das tipificações">
@@ -636,36 +679,60 @@ export default function TipificacoesPage() {
                                         <Layers3 size={16} />
                                         {tipificacao.taxonomies.length} taxonomia(s)
                                     </span>
+                                    {podeGerenciar ? (
+                                        <>
+                                            <BotaoComTitulo
+                                                className="inline-flex items-center gap-2 rounded-full border border-brand/40 bg-brand/10 px-3 py-2 text-brand-strong transition hover:border-brand hover:bg-brand/18 dark:text-brand"
+                                                type="button"
+                                                onClick={() => abrirEnriquecimento(tipificacao)}
+                                                title="Enriquecer usa um PDF para sugerir novos elementos ou complementos nesta tipificação existente."
+                                                aria-label="Enriquecer tipificação. Usa um PDF para sugerir novos elementos ou complementos nesta tipificação existente."
+                                            >
+                                                <Sparkles size={16} />
+                                                Enriquecer
+                                                <Info aria-hidden="true" size={15} />
+                                            </BotaoComTitulo>
+                                        </>
+                                    ) : null}
+                                    <BotaoComTitulo
+                                        className="inline-flex items-center gap-2 rounded-full border border-line bg-input-bg px-3 py-2 text-ink transition hover:border-brand hover:bg-subtle-hover disabled:opacity-55"
+                                        type="button"
+                                        disabled={Boolean(exportandoId)}
+                                        onClick={() => void exportarPdf(tipificacao)}
+                                    >
+                                        {exportandoId === tipificacao.id ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
+                                        PDF
+                                    </BotaoComTitulo>
                                     <span className="inline-flex items-center gap-2 rounded-full border border-line bg-input-bg px-3 py-2">
                                         <GitBranch size={16} />
                                         {contarRamos(tipificacao)} ramo(s)
                                     </span>
                                     {podeGerenciar ? (
                                         <>
-                                            <button
+                                            <BotaoComTitulo
                                                 className="inline-flex items-center gap-2 rounded-full border border-line bg-input-bg px-3 py-2 text-ink transition hover:border-brand hover:bg-subtle-hover"
                                                 type="button"
                                                 onClick={() => abrirEdicaoTipificacao(tipificacao)}
                                             >
                                                 <Pencil size={16} />
                                                 Editar nome
-                                            </button>
-                                            <button
+                                            </BotaoComTitulo>
+                                            <BotaoComTitulo
                                                 className="inline-flex items-center gap-2 rounded-full border border-line bg-input-bg px-3 py-2 text-ink transition hover:border-brand hover:bg-subtle-hover"
                                                 type="button"
                                                 onClick={() => abrirFormularioTaxonomia(tipificacao)}
                                             >
                                                 <Plus size={16} />
                                                 Taxonomia
-                                            </button>
-                                            <button
+                                            </BotaoComTitulo>
+                                            <BotaoComTitulo
                                                 className="inline-flex items-center gap-2 rounded-full border border-line bg-input-bg px-3 py-2 text-accent transition hover:border-accent hover:bg-accent/10"
                                                 type="button"
                                                 onClick={() => setTipificacaoParaExcluir(tipificacao)}
                                             >
                                                 <Trash2 size={16} />
                                                 Excluir
-                                            </button>
+                                            </BotaoComTitulo>
                                         </>
                                     ) : null}
                                 </div>
@@ -730,7 +797,7 @@ export default function TipificacoesPage() {
                                             </span>
                                         {podeGerenciar ? (
                                             <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
-                                                <button
+                                                <BotaoComTitulo
                                                     className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-xs font-bold text-ink transition hover:border-brand"
                                                     type="button"
                                                     onClick={(event) => {
@@ -740,8 +807,8 @@ export default function TipificacoesPage() {
                                                 >
                                                     <Pencil size={14} />
                                                     Editar taxonomia
-                                                </button>
-                                                <button
+                                                </BotaoComTitulo>
+                                                <BotaoComTitulo
                                                     className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-xs font-bold text-accent transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-45"
                                                     type="button"
                                                     disabled={tipificacao.taxonomies.length === 1}
@@ -752,7 +819,7 @@ export default function TipificacoesPage() {
                                                 >
                                                     <Trash2 size={14} />
                                                     Remover
-                                                </button>
+                                                </BotaoComTitulo>
                                             </div>
                                         ) : null}
                                         </div>
@@ -784,19 +851,19 @@ export default function TipificacoesPage() {
                                 <h2 className="mt-1 font-display text-2xl font-bold" id="creation-mode-title">Como deseja criar a tipificação?</h2>
                                 <p className="mt-2 text-sm leading-6 text-muted">Você pode montar toda a árvore manualmente ou gerar sugestões a partir de um documento normativo.</p>
                             </div>
-                            <button aria-label="Fechar escolha de criação" className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg hover:border-brand" onClick={() => setSeletorCriacaoAberto(false)} type="button"><X size={18} /></button>
+                            <BotaoComTitulo aria-label="Fechar escolha de criação" className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg hover:border-brand" onClick={() => setSeletorCriacaoAberto(false)} type="button"><X size={18} /></BotaoComTitulo>
                         </header>
                         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                            <button autoFocus className="group grid min-h-44 content-start gap-3 rounded-xl border border-line bg-input-bg p-5 text-left transition hover:border-brand hover:bg-subtle-hover" onClick={abrirCriacaoManual} type="button">
+                            <BotaoComTitulo autoFocus className="group grid min-h-44 content-start gap-3 rounded-xl border border-line bg-input-bg p-5 text-left transition hover:border-brand hover:bg-subtle-hover" onClick={abrirCriacaoManual} type="button">
                                 <span className="grid size-11 place-items-center rounded-xl bg-brand/12 text-brand-strong dark:text-brand"><Pencil size={21} /></span>
                                 <span className="font-display text-lg font-bold">Criar manualmente</span>
                                 <span className="text-sm leading-6 text-muted">Informe o nome, as taxonomias e cada ramo diretamente no formulário atual.</span>
-                            </button>
-                            <button className="group grid min-h-44 content-start gap-3 rounded-xl border border-line bg-input-bg p-5 text-left transition hover:border-brand hover:bg-subtle-hover" onClick={abrirCriacaoDocumento} type="button">
+                            </BotaoComTitulo>
+                            <BotaoComTitulo className="group grid min-h-44 content-start gap-3 rounded-xl border border-line bg-input-bg p-5 text-left transition hover:border-brand hover:bg-subtle-hover" onClick={abrirCriacaoDocumento} type="button">
                                 <span className="grid size-11 place-items-center rounded-xl bg-accent/12 text-accent"><FileUp size={21} /></span>
                                 <span className="font-display text-lg font-bold">Gerar a partir de documento</span>
                                 <span className="text-sm leading-6 text-muted">Envie um PDF e revise as sugestões antes de aplicá-las à árvore real.</span>
-                            </button>
+                            </BotaoComTitulo>
                         </div>
                     </section>
                 </div>
@@ -805,7 +872,12 @@ export default function TipificacoesPage() {
             {podeGerenciar && criacaoDocumentoAberta ? (
                 <TipificacaoDocumentoWorkspace
                     aoArvoreAlterada={() => carregarTipificacoes(false)}
-                    aoFechar={() => setCriacaoDocumentoAberta(false)}
+                    aoFechar={() => {
+                        setCriacaoDocumentoAberta(false);
+                        setTipificacaoParaEnriquecer(null);
+                    }}
+                    modoInicial={tipificacaoParaEnriquecer ? "enrich" : "create"}
+                    tipificacaoAlvoInicial={tipificacaoParaEnriquecer?.id}
                     tipificacoes={tipificacoes}
                 />
             ) : null}
@@ -837,7 +909,7 @@ export default function TipificacoesPage() {
                                     Monte as taxonomias e os ramos que serão usados na árvore de verificação.
                                 </p>
                             </div>
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg text-ink transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-50"
                                 type="button"
                                 disabled={salvandoRascunho}
@@ -845,7 +917,7 @@ export default function TipificacoesPage() {
                                 aria-label="Cancelar criação"
                             >
                                 <X size={18} />
-                            </button>
+                            </BotaoComTitulo>
                         </header>
 
                         <div className="mt-5 grid gap-5">
@@ -883,7 +955,7 @@ export default function TipificacoesPage() {
                                                     placeholder="Nome da taxonomia"
                                                 />
                                             </label>
-                                            <button
+                                            <BotaoComTitulo
                                                 className="mt-auto inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-3 text-sm font-bold text-muted transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"
                                                 type="button"
                                                 disabled={salvandoRascunho || rascunho.taxonomies.length === 1}
@@ -891,7 +963,7 @@ export default function TipificacoesPage() {
                                             >
                                                 <Trash2 size={16} />
                                                 Remover
-                                            </button>
+                                            </BotaoComTitulo>
                                         </div>
                                         <label className="mt-3 grid gap-2">
                                             <span className="text-sm font-semibold">Descrição</span>
@@ -907,7 +979,7 @@ export default function TipificacoesPage() {
                                         <div className="mt-4 grid gap-3 border-t border-line pt-4">
                                             <div className="flex items-center justify-between gap-3">
                                                 <strong className="font-display text-sm">Ramos</strong>
-                                                <button
+                                                <BotaoComTitulo
                                                     className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-panel px-3 text-sm font-bold text-muted transition hover:border-brand hover:text-ink"
                                                     type="button"
                                                     disabled={salvandoRascunho}
@@ -915,13 +987,13 @@ export default function TipificacoesPage() {
                                                 >
                                                     <Plus size={16} />
                                                     Adicionar ramo
-                                                </button>
+                                                </BotaoComTitulo>
                                             </div>
                                             {taxonomia.branches.map((ramo, indiceRamo) => (
                                                 <div className="grid gap-3 rounded-lg border border-line bg-panel p-3" key={ramo.chave}>
                                                     <div className="flex items-center justify-between gap-3">
                                                         <span className="text-sm font-bold text-muted">Ramo {indiceRamo + 1}</span>
-                                                        <button
+                                                        <BotaoComTitulo
                                                             className="inline-flex size-8 items-center justify-center rounded-md text-muted transition hover:bg-subtle-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"
                                                             type="button"
                                                             disabled={salvandoRascunho || taxonomia.branches.length === 1}
@@ -929,7 +1001,7 @@ export default function TipificacoesPage() {
                                                             aria-label={`Remover ramo ${indiceRamo + 1}`}
                                                         >
                                                             <Trash2 size={16} />
-                                                        </button>
+                                                        </BotaoComTitulo>
                                                     </div>
                                                     <label className="grid gap-2">
                                                         <span className="text-sm font-semibold">Título</span>
@@ -958,7 +1030,7 @@ export default function TipificacoesPage() {
                                 ))}
                             </div>
 
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-line bg-input-bg px-3 text-sm font-bold text-muted transition hover:border-brand hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
                                 type="button"
                                 disabled={salvandoRascunho}
@@ -966,26 +1038,26 @@ export default function TipificacoesPage() {
                             >
                                 <Plus size={17} />
                                 Adicionar taxonomia
-                            </button>
+                            </BotaoComTitulo>
                         </div>
 
                         <footer className="mt-5 flex flex-wrap justify-end gap-3 border-t border-line pt-4">
-                            <button
+                            <BotaoComTitulo
                                 className="h-10 rounded-lg border border-line bg-input-bg px-4 text-sm font-bold text-muted transition hover:border-brand hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
                                 type="button"
                                 disabled={salvandoRascunho}
                                 onClick={fecharCriacao}
                             >
                                 Cancelar
-                            </button>
-                            <button
+                            </BotaoComTitulo>
+                            <BotaoComTitulo
                                 className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-white transition hover:bg-brand-strong dark:text-preto disabled:cursor-not-allowed disabled:opacity-50"
                                 type="submit"
                                 disabled={salvandoRascunho}
                             >
                                 {salvandoRascunho ? <Loader2 className="animate-spin" size={17} /> : <Save size={17} />}
                                 {salvandoRascunho ? "Criando..." : "Criar tipificação"}
-                            </button>
+                            </BotaoComTitulo>
                         </footer>
                     </form>
                 </div>
@@ -1018,7 +1090,7 @@ export default function TipificacoesPage() {
                                             : formularioContextual.ramo ? "Editar ramo" : "Adicionar ramo"}
                                 </h2>
                             </div>
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex size-10 items-center justify-center rounded-lg border border-line bg-input-bg text-ink transition hover:border-brand disabled:cursor-not-allowed disabled:opacity-50"
                                 type="button"
                                 disabled={salvandoFormulario}
@@ -1026,7 +1098,7 @@ export default function TipificacoesPage() {
                                 aria-label="Cancelar"
                             >
                                 <X size={18} />
-                            </button>
+                            </BotaoComTitulo>
                         </header>
 
                         <div className="mt-5 grid gap-4">
@@ -1106,13 +1178,13 @@ export default function TipificacoesPage() {
                         </div>
 
                         <footer className="mt-5 flex justify-end gap-3 border-t border-line pt-4">
-                            <button className="h-10 rounded-lg border border-line bg-input-bg px-4 text-sm font-bold text-muted disabled:opacity-50" type="button" disabled={salvandoFormulario} onClick={() => fecharFormularioContextual()}>
+                            <BotaoComTitulo className="h-10 rounded-lg border border-line bg-input-bg px-4 text-sm font-bold text-muted disabled:opacity-50" type="button" disabled={salvandoFormulario} onClick={() => fecharFormularioContextual()}>
                                 Cancelar
-                            </button>
-                            <button className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-white disabled:opacity-50 dark:text-preto" type="submit" disabled={salvandoFormulario}>
+                            </BotaoComTitulo>
+                            <BotaoComTitulo className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-white disabled:opacity-50 dark:text-preto" type="submit" disabled={salvandoFormulario}>
                                 {salvandoFormulario ? <Loader2 className="animate-spin" size={17} /> : <Save size={17} />}
                                 {salvandoFormulario ? "Salvando..." : "Salvar"}
-                            </button>
+                            </BotaoComTitulo>
                         </footer>
                     </form>
                 </div>
@@ -1145,7 +1217,7 @@ export default function TipificacoesPage() {
                                     Atualize a tipificação, suas taxonomias e seus ramos. As remoções de itens salvos pedem confirmação.
                                 </p>
                             </div>
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg text-ink transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-50"
                                 type="button"
                                 disabled={salvandoEdicao}
@@ -1153,7 +1225,7 @@ export default function TipificacoesPage() {
                                 aria-label="Cancelar edição"
                             >
                                 <X size={18} />
-                            </button>
+                            </BotaoComTitulo>
                         </header>
 
                         <div className="mt-5 grid gap-5">
@@ -1190,7 +1262,7 @@ export default function TipificacoesPage() {
                                                     placeholder="Nome da taxonomia"
                                                 />
                                             </label>
-                                            <button
+                                            <BotaoComTitulo
                                                 className="mt-auto inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-3 text-sm font-bold text-muted transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"
                                                 type="button"
                                                 disabled={salvandoEdicao || rascunhoEdicao.taxonomies.length === 1}
@@ -1198,7 +1270,7 @@ export default function TipificacoesPage() {
                                             >
                                                 <Trash2 size={16} />
                                                 Remover
-                                            </button>
+                                            </BotaoComTitulo>
                                         </div>
                                         <label className="mt-3 grid gap-2">
                                             <span className="text-sm font-semibold">Descrição</span>
@@ -1214,7 +1286,7 @@ export default function TipificacoesPage() {
                                         <div className="mt-4 grid gap-3 border-t border-line pt-4">
                                             <div className="flex items-center justify-between gap-3">
                                                 <strong className="font-display text-sm">Ramos</strong>
-                                                <button
+                                                <BotaoComTitulo
                                                     className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-panel px-3 text-sm font-bold text-muted transition hover:border-brand hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
                                                     type="button"
                                                     disabled={salvandoEdicao}
@@ -1222,13 +1294,13 @@ export default function TipificacoesPage() {
                                                 >
                                                     <Plus size={16} />
                                                     Adicionar ramo
-                                                </button>
+                                                </BotaoComTitulo>
                                             </div>
                                             {taxonomia.branches.map((ramo, indiceRamo) => (
                                                 <div className="grid gap-3 rounded-lg border border-line bg-panel p-3" key={ramo.chave}>
                                                     <div className="flex items-center justify-between gap-3">
                                                         <span className="text-sm font-bold text-muted">Ramo {indiceRamo + 1}</span>
-                                                        <button
+                                                        <BotaoComTitulo
                                                             className="inline-flex size-8 items-center justify-center rounded-md text-muted transition hover:bg-subtle-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"
                                                             type="button"
                                                             disabled={salvandoEdicao || taxonomia.branches.length === 1}
@@ -1236,7 +1308,7 @@ export default function TipificacoesPage() {
                                                             aria-label={`Remover ramo ${indiceRamo + 1}`}
                                                         >
                                                             <Trash2 size={16} />
-                                                        </button>
+                                                        </BotaoComTitulo>
                                                     </div>
                                                     <label className="grid gap-2">
                                                         <span className="text-sm font-semibold">Título</span>
@@ -1265,7 +1337,7 @@ export default function TipificacoesPage() {
                                 ))}
                             </div>
 
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-line bg-input-bg px-3 text-sm font-bold text-muted transition hover:border-brand hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
                                 type="button"
                                 disabled={salvandoEdicao}
@@ -1273,26 +1345,26 @@ export default function TipificacoesPage() {
                             >
                                 <Plus size={17} />
                                 Adicionar taxonomia
-                            </button>
+                            </BotaoComTitulo>
                         </div>
 
                         <footer className="mt-5 flex flex-wrap justify-end gap-3 border-t border-line pt-4">
-                            <button
+                            <BotaoComTitulo
                                 className="h-10 rounded-lg border border-line bg-input-bg px-4 text-sm font-bold text-muted transition hover:border-brand hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
                                 type="button"
                                 disabled={salvandoEdicao}
                                 onClick={() => fecharEdicao()}
                             >
                                 Cancelar
-                            </button>
-                            <button
+                            </BotaoComTitulo>
+                            <BotaoComTitulo
                                 className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-white transition hover:bg-brand-strong dark:text-preto disabled:cursor-not-allowed disabled:opacity-50"
                                 type="submit"
                                 disabled={salvandoEdicao}
                             >
                                 {salvandoEdicao ? <Loader2 className="animate-spin" size={17} /> : <Save size={17} />}
                                 {salvandoEdicao ? "Salvando..." : "Salvar alterações"}
-                            </button>
+                            </BotaoComTitulo>
                         </footer>
                     </form>
                 </div>
@@ -1345,26 +1417,26 @@ export default function TipificacoesPage() {
                                 </h2>
                                 <p className="mt-2 text-sm leading-6 text-muted">{taxonomiaSelecionada.description}</p>
                             </div>
-                            <button
+                            <BotaoComTitulo
                                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg text-ink transition hover:border-brand hover:bg-subtle-hover"
                                 type="button"
                                 onClick={() => setTaxonomiaSelecionada(null)}
                                 aria-label="Fechar"
                             >
                                 <X size={18} />
-                            </button>
+                            </BotaoComTitulo>
                         </header>
 
                         <div className="mt-4 grid gap-3">
                             {podeGerenciar && tipificacaoDaTaxonomiaSelecionada ? (
-                                <button
+                                <BotaoComTitulo
                                     className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-line bg-input-bg px-3 text-sm font-bold text-ink transition hover:border-brand"
                                     type="button"
                                     onClick={() => abrirFormularioRamo(tipificacaoDaTaxonomiaSelecionada, taxonomiaSelecionada)}
                                 >
                                     <Plus size={16} />
                                     Adicionar ramo
-                                </button>
+                                </BotaoComTitulo>
                             ) : null}
                             {taxonomiaSelecionada.branches.length === 0 ? (
                                 <span className="rounded-lg border border-dashed border-line p-4 text-muted">
@@ -1377,15 +1449,15 @@ export default function TipificacoesPage() {
                                             <strong className="font-display text-base">{ramo.title}</strong>
                                             {podeGerenciar && tipificacaoDaTaxonomiaSelecionada ? (
                                                 <div className="flex shrink-0 gap-2">
-                                                    <button
+                                                    <BotaoComTitulo
                                                         className="inline-flex size-8 items-center justify-center rounded-md text-muted transition hover:bg-subtle-hover hover:text-ink"
                                                         type="button"
                                                         onClick={() => abrirFormularioRamo(tipificacaoDaTaxonomiaSelecionada, taxonomiaSelecionada, ramo)}
                                                         aria-label={`Editar ramo ${ramo.title}`}
                                                     >
                                                         <Pencil size={15} />
-                                                    </button>
-                                                    <button
+                                                    </BotaoComTitulo>
+                                                    <BotaoComTitulo
                                                         className="inline-flex size-8 items-center justify-center rounded-md text-muted transition hover:bg-subtle-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"
                                                         type="button"
                                                         disabled={taxonomiaSelecionada.branches.length === 1}
@@ -1393,7 +1465,7 @@ export default function TipificacoesPage() {
                                                         aria-label={`Remover ramo ${ramo.title}`}
                                                     >
                                                         <Trash2 size={15} />
-                                                    </button>
+                                                    </BotaoComTitulo>
                                                 </div>
                                             ) : null}
                                         </div>
@@ -1446,15 +1518,15 @@ function ConfirmacaoDialogo({
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-muted">{descricao}</p>
                 <div className="mt-5 flex justify-end gap-3">
-                    <button
+                    <BotaoComTitulo
                         className="h-10 rounded-lg border border-line bg-input-bg px-4 text-sm font-bold text-muted transition hover:border-brand hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
                         type="button"
                         disabled={carregando}
                         onClick={onCancelar}
                     >
                         Cancelar
-                    </button>
-                    <button
+                    </BotaoComTitulo>
+                    <BotaoComTitulo
                         className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-bold text-white transition hover:bg-accent/85 disabled:cursor-not-allowed disabled:opacity-50 dark:text-preto"
                         type="button"
                         disabled={carregando}
@@ -1462,7 +1534,7 @@ function ConfirmacaoDialogo({
                     >
                         {carregando ? <Loader2 className="animate-spin" size={17} /> : <Trash2 size={17} />}
                         {carregando ? "Excluindo..." : textoConfirmar}
-                    </button>
+                    </BotaoComTitulo>
                 </div>
             </div>
         </div>

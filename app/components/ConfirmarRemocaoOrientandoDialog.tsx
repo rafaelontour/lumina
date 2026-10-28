@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { useEffect, useRef } from "react";
 import { AlertTriangle, Loader2, Trash2, X } from "lucide-react";
 
@@ -92,7 +94,7 @@ export default function ConfirmarRemocaoOrientandoDialog({
                             </h2>
                         </div>
                     </div>
-                    <button
+                    <BotaoComTitulo
                         aria-label="Fechar confirmação de remoção"
                         className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg transition hover:border-brand hover:bg-subtle-hover disabled:opacity-50"
                         disabled={removendo}
@@ -100,7 +102,7 @@ export default function ConfirmarRemocaoOrientandoDialog({
                         type="button"
                     >
                         <X size={18} />
-                    </button>
+                    </BotaoComTitulo>
                 </header>
 
                 <div className="grid gap-5 p-5">
@@ -127,7 +129,7 @@ export default function ConfirmarRemocaoOrientandoDialog({
                     ) : null}
 
                     <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                        <button
+                        <BotaoComTitulo
                             ref={cancelarRef}
                             className="h-11 rounded-lg border border-line bg-input-bg px-5 font-display font-semibold transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
                             disabled={removendo}
@@ -135,8 +137,8 @@ export default function ConfirmarRemocaoOrientandoDialog({
                             type="button"
                         >
                             Cancelar
-                        </button>
-                        <button
+                        </BotaoComTitulo>
+                        <BotaoComTitulo
                             className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-accent px-5 font-display font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
                             disabled={removendo}
                             onClick={aoConfirmar}
@@ -144,7 +146,7 @@ export default function ConfirmarRemocaoOrientandoDialog({
                         >
                             {removendo ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
                             {removendo ? "Removendo vínculo…" : "Remover vínculo"}
-                        </button>
+                        </BotaoComTitulo>
                     </div>
                 </div>
             </section>

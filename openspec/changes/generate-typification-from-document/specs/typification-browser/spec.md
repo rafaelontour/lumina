@@ -24,3 +24,9 @@ The Tipificacoes page SHALL provide a “Nova tipificação” action in the hea
 - **WHEN** the administrator chooses “Gerar a partir de documento”
 - **THEN** the page opens the document upload and suggestion-session experience
 - **AND** leaves manual creation available for a later attempt
+
+#### Scenario: Administrator starts enrichment from a typification card
+- **WHEN** the administrator activates “Enriquecer” beside a typification's taxonomy count
+- **THEN** the page opens the document-assisted experience in enrichment mode
+- **AND** preselects that typification as the enrichment target
+- **AND** places an information icon and explanatory tooltip inside the “Enriquecer” button, explaining that enrichment suggests new elements or complements from a PDF

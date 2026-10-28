@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { ChevronLeft, ChevronRight, FileText, Loader2, Maximize2, Search, X, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs, type TextContent } from "react-pdf";
@@ -303,7 +305,7 @@ function LeitorPdf({ evidenciaSelecionada, evidenciaSelecionadaChave, fileUrl, o
                             aria-label="Pesquisar texto exato no PDF"
                         />
                         {buscaAtiva ? (
-                            <button
+                            <BotaoComTitulo
                                 type="button"
                                 className="mr-1 inline-flex size-7 items-center justify-center rounded-md text-muted transition hover:bg-subtle-hover hover:text-ink"
                                 onClick={() => {
@@ -314,7 +316,7 @@ function LeitorPdf({ evidenciaSelecionada, evidenciaSelecionadaChave, fileUrl, o
                                 title="Limpar pesquisa"
                             >
                                 <X size={15} />
-                            </button>
+                            </BotaoComTitulo>
                         ) : null}
                     </div>
                     {buscaAtiva ? (
@@ -351,13 +353,13 @@ function LeitorPdf({ evidenciaSelecionada, evidenciaSelecionadaChave, fileUrl, o
                     >
                         <ZoomOut size={17} />
                     </BotaoControlePdf>
-                    <button
+                    <BotaoComTitulo
                         type="button"
                         className="h-9 min-w-14 rounded-lg border border-line bg-input-bg px-2 text-xs font-bold text-muted transition hover:border-brand hover:text-ink"
                         onClick={() => alterarZoom(1)}
                     >
                         {Math.round(zoom * 100)}%
-                    </button>
+                    </BotaoComTitulo>
                     <BotaoControlePdf
                         label="Aumentar zoom"
                         disabled={zoom >= zoomMaximo}
@@ -465,7 +467,7 @@ function BotaoControlePdf({
     onClick: () => void;
 }) {
     return (
-        <button
+        <BotaoComTitulo
             type="button"
             className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg text-muted transition hover:border-brand hover:text-ink disabled:cursor-not-allowed disabled:opacity-45"
             disabled={disabled}
@@ -474,7 +476,7 @@ function BotaoControlePdf({
             title={label}
         >
             {children}
-        </button>
+        </BotaoComTitulo>
     );
 }
 

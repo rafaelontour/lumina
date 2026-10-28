@@ -1,10 +1,12 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { useEffect, useRef, useState } from "react";
-import { Camera, CalendarDays, Loader2, Mail, Phone, Save, ShieldCheck, UserRound } from "lucide-react";
+import { Camera, CalendarDays, KeyRound, Loader2, Mail, Phone, Save, ShieldCheck, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
-import { atualizarPerfilUsuario, enviarFotoPerfilUsuario, obterUsuarioAutenticado } from "@/app/services/autenticacao";
+import { alterarSenhaUsuario, atualizarPerfilUsuario, enviarFotoPerfilUsuario, obterUsuarioAutenticado } from "@/app/services/autenticacao";
 import { useAuth } from "@/app/data/provider/AuthProvider";
 import AvatarUsuario from "./AvatarUsuario";
 
@@ -33,6 +35,10 @@ export default function PerfilUsuarioWorkspace() {
     const [fotoSelecionada, setFotoSelecionada] = useState<File | null>(null);
     const [previaFoto, setPreviaFoto] = useState<string | null>(null);
     const [salvando, setSalvando] = useState(false);
+    const [senhaAtual, setSenhaAtual] = useState("");
+    const [novaSenha, setNovaSenha] = useState("");
+    const [confirmarNovaSenha, setConfirmarNovaSenha] = useState("");
+    const [salvandoSenha, setSalvandoSenha] = useState(false);
     const campoFotoRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -103,6 +109,34 @@ export default function PerfilUsuarioWorkspace() {
         }
     }
 
+    async function salvarSenha(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        if (!usuario || salvandoSenha) return;
+        if (!senhaAtual || !novaSenha || !confirmarNovaSenha) {
+            toast.error("Preencha todos os campos de senha.");
+            setSenhaAtual("");
+            setNovaSenha("");
+            setConfirmarNovaSenha("");
+            return;
+        }
+        if (novaSenha !== confirmarNovaSenha) {
+            toast.error("A confirmação não corresponde à nova senha.");
+            setSenhaAtual("");
+            setNovaSenha("");
+            setConfirmarNovaSenha("");
+            return;
+        }
+
+        setSalvandoSenha(true);
+        const [, err] = await alterarSenhaUsuario({ userId: usuario.id, currentPassword: senhaAtual, newPassword: novaSenha });
+        setSenhaAtual("");
+        setNovaSenha("");
+        setConfirmarNovaSenha("");
+        setSalvandoSenha(false);
+        if (err) toast.error(err.message);
+        else toast.success("Senha alterada com sucesso.");
+    }
+
     if (!usuario) return null;
 
     return (
@@ -115,7 +149,7 @@ export default function PerfilUsuarioWorkspace() {
 
             <form className="mx-auto grid w-full max-w-4xl gap-5" onSubmit={(event) => void salvarPerfil(event)}>
                 <article className="grid gap-5 rounded-xl border border-line bg-panel p-5 shadow-[0_18px_44px_-28px_var(--chrome-shadow)] sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
-                    <AvatarUsuario className="mx-auto size-28 text-2xl sm:mx-0" imagemTemporaria={previaFoto} usuario={usuario} />
+                    <AvatarUsuario className="mx-auto size-28 text-2xl sm:mx-0" imagemTemporaria={previaFoto} usuario={usuario} visualizavel />
                     <div className="grid gap-3 text-center sm:text-left">
                         <div>
                             <h2 className="font-display text-xl font-bold text-ink">Foto de perfil</h2>
@@ -166,11 +200,28 @@ export default function PerfilUsuarioWorkspace() {
 
                 <article className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-panel p-5 shadow-[0_18px_44px_-28px_var(--chrome-shadow)]">
                     <div className="flex items-center gap-3 text-sm text-muted"><CalendarDays className="text-accent" size={18} /> Conta criada em {formatarData(usuario.created_at)}</div>
-                    <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto" type="submit" disabled={salvando}>
+                    <BotaoComTitulo className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto" type="submit" disabled={salvando}>
                         {salvando ? <Loader2 className="animate-spin motion-reduce:animate-none" size={18} /> : <Save size={18} />}
                         {salvando ? "Salvando..." : "Salvar alterações"}
-                    </button>
+                    </BotaoComTitulo>
                 </article>
+            </form>
+
+            <form className="mx-auto grid w-full max-w-4xl gap-5 rounded-xl border border-line bg-panel p-5 shadow-[0_18px_44px_-28px_var(--chrome-shadow)]" onSubmit={(event) => void salvarSenha(event)}>
+                <div>
+                    <h2 className="font-display text-xl font-bold text-ink">Alterar senha</h2>
+                    <p className="mt-1 text-sm leading-6 text-muted">Informe sua senha atual e escolha uma nova senha.</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                    <label className="grid gap-2 text-sm font-semibold text-ink">Senha atual<input className="h-11 rounded-lg border border-line bg-input-bg px-3 font-normal outline-none focus:border-brand" type="password" autoComplete="current-password" value={senhaAtual} onChange={(event) => setSenhaAtual(event.target.value)} disabled={salvandoSenha} required /></label>
+                    <label className="grid gap-2 text-sm font-semibold text-ink">Nova senha<input className="h-11 rounded-lg border border-line bg-input-bg px-3 font-normal outline-none focus:border-brand" type="password" autoComplete="new-password" value={novaSenha} onChange={(event) => setNovaSenha(event.target.value)} disabled={salvandoSenha} required /></label>
+                    <label className="grid gap-2 text-sm font-semibold text-ink">Confirmar nova senha<input className="h-11 rounded-lg border border-line bg-input-bg px-3 font-normal outline-none focus:border-brand" type="password" autoComplete="new-password" value={confirmarNovaSenha} onChange={(event) => setConfirmarNovaSenha(event.target.value)} disabled={salvandoSenha} required /></label>
+                </div>
+                <div className="flex justify-end">
+                    <BotaoComTitulo className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-background disabled:opacity-55" disabled={salvandoSenha} type="submit">
+                        {salvandoSenha ? <Loader2 className="animate-spin" size={17} /> : <KeyRound size={17} />}{salvandoSenha ? "Alterando…" : "Alterar senha"}
+                    </BotaoComTitulo>
+                </div>
             </form>
         </section>
     );

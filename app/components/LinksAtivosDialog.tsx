@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CalendarClock, Check, Copy, Link2, Loader2, Mail, RefreshCw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -164,7 +166,7 @@ export default function LinksAtivosDialog({ orientadorId, aoFechar }: LinksAtivo
                             Links já utilizados deixam automaticamente esta lista. Você também pode excluir um link antes do uso.
                         </p>
                     </div>
-                    <button
+                    <BotaoComTitulo
                         ref={fecharRef}
                         aria-label="Fechar links ativos"
                         className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg transition hover:border-brand hover:bg-subtle-hover disabled:opacity-50"
@@ -173,13 +175,13 @@ export default function LinksAtivosDialog({ orientadorId, aoFechar }: LinksAtivo
                         type="button"
                     >
                         <X size={18} />
-                    </button>
+                    </BotaoComTitulo>
                 </header>
 
                 <div className="min-h-0 overflow-y-auto p-5">
                     <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-line bg-panel-soft px-4 py-3">
                         <p className="text-sm text-muted">Somente convites pendentes e dentro da validade são exibidos.</p>
-                        <button
+                        <BotaoComTitulo
                             className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-line bg-input-bg px-3 text-sm font-semibold transition hover:border-brand hover:bg-subtle-hover disabled:opacity-55"
                             disabled={carregando || atualizando || Boolean(excluindoId)}
                             onClick={() => void carregar()}
@@ -187,7 +189,7 @@ export default function LinksAtivosDialog({ orientadorId, aoFechar }: LinksAtivo
                         >
                             <RefreshCw className={atualizando ? "animate-spin" : ""} size={16} />
                             Atualizar
-                        </button>
+                        </BotaoComTitulo>
                     </div>
 
                     {erro ? (
@@ -220,7 +222,7 @@ export default function LinksAtivosDialog({ orientadorId, aoFechar }: LinksAtivo
                                                 <p className="flex items-center gap-2 break-all font-display font-bold"><Mail className="shrink-0 text-brand" size={17} />{convite.email}</p>
                                                 <p className="mt-2 flex items-center gap-2 text-xs text-muted"><CalendarClock size={15} />Válido até {formatarExpiracao(convite.expires_at)}</p>
                                             </div>
-                                            <button
+                                            <BotaoComTitulo
                                                 className="inline-flex h-9 items-center gap-2 rounded-lg border border-accent/35 px-3 text-sm font-semibold text-accent transition hover:bg-accent/8 disabled:opacity-55"
                                                 disabled={Boolean(excluindoId)}
                                                 onClick={() => void excluir(convite)}
@@ -228,15 +230,15 @@ export default function LinksAtivosDialog({ orientadorId, aoFechar }: LinksAtivo
                                             >
                                                 {excluindo ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
                                                 {excluindo ? "Excluindo…" : "Excluir link"}
-                                            </button>
+                                            </BotaoComTitulo>
                                         </div>
 
                                         <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                                             <input className="h-10 min-w-0 rounded-lg border border-line bg-panel px-3 font-mono text-xs text-ink outline-none focus:border-brand focus:ring-3 focus:ring-focus/35" onFocus={(evento) => evento.currentTarget.select()} readOnly value={link} />
-                                            <button className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-background transition hover:bg-brand-strong" onClick={() => void copiar(convite)} type="button">
+                                            <BotaoComTitulo className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-background transition hover:bg-brand-strong" onClick={() => void copiar(convite)} type="button">
                                                 {copiadoId === convite.id ? <Check size={16} /> : <Copy size={16} />}
                                                 {copiadoId === convite.id ? "Copiado" : "Copiar"}
-                                            </button>
+                                            </BotaoComTitulo>
                                         </div>
                                         {copiaManualId === convite.id ? <p className="mt-2 text-xs text-muted" role="status">A cópia automática falhou. Selecione o link e copie manualmente.</p> : null}
                                     </li>

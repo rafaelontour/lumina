@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import {
     AlertTriangle,
     BookOpen,
@@ -45,9 +47,12 @@ type TipificacaoDocumentoWorkspaceProps = {
     tipificacoes: Tipificacao[];
     aoFechar: () => void;
     aoArvoreAlterada: () => Promise<unknown> | unknown;
+    modoInicial?: ModoDocumento;
+    tipificacaoAlvoInicial?: string;
 };
 
 type ModoDocumento = "create" | "enrich";
+type AbaSessoes = "pending" | "completed";
 type MutacaoAtiva = { tipo: "confirmar" | "descartar" | "descartar-todos"; itemId?: string } | null;
 type ConfirmacaoDescarte = { tipo: "item"; item: ItemSugestaoTipificacao } | { tipo: "sessao" } | null;
 
@@ -127,9 +132,11 @@ export default function TipificacaoDocumentoWorkspace({
     tipificacoes,
     aoFechar,
     aoArvoreAlterada,
+    modoInicial = "create",
+    tipificacaoAlvoInicial = "",
 }: Readonly<TipificacaoDocumentoWorkspaceProps>) {
-    const [modo, setModo] = useState<ModoDocumento>("create");
-    const [tipificacaoAlvo, setTipificacaoAlvo] = useState("");
+    const [modo, setModo] = useState<ModoDocumento>(modoInicial);
+    const [tipificacaoAlvo, setTipificacaoAlvo] = useState(tipificacaoAlvoInicial);
     const [arquivo, setArquivo] = useState<File | null>(null);
     const [erroEnvio, setErroEnvio] = useState("");
     const [enviando, setEnviando] = useState(false);
@@ -139,6 +146,7 @@ export default function TipificacaoDocumentoWorkspace({
     const [carregandoSessoes, setCarregandoSessoes] = useState(true);
     const [erroSessoes, setErroSessoes] = useState("");
     const [sessaoSelecionadaId, setSessaoSelecionadaId] = useState<string | null>(null);
+    const [abaSessoes, setAbaSessoes] = useState<AbaSessoes>("pending");
     const [detalhe, setDetalhe] = useState<SessaoSugestaoDetalhe | null>(null);
     const [carregandoDetalhe, setCarregandoDetalhe] = useState(false);
     const [erroDetalhe, setErroDetalhe] = useState("");
@@ -172,6 +180,7 @@ export default function TipificacaoDocumentoWorkspace({
             setErroDetalhe(err?.message ?? "A API não retornou os detalhes desta geração.");
         } else {
             setDetalhe(resultado);
+            setAbaSessoes(resultado.status === "completed" ? "completed" : "pending");
             setSessoes((atuais) => {
                 const resumo = resumoDaSessao(resultado);
                 return atuais.some((sessao) => sessao.id === resumo.id)
@@ -227,9 +236,15 @@ export default function TipificacaoDocumentoWorkspace({
     }, [itens]);
     const itensRaiz = useMemo(() => ordenarItens(itens.filter((item) => !item.parent_item_id)), [itens]);
     const pendentes = itens.filter((item) => item.status === "pending").length;
+    const sessoesPendentes = useMemo(() => sessoes.filter((sessao) => sessao.status !== "completed"), [sessoes]);
+    const sessoesConcluidas = useMemo(() => sessoes.filter((sessao) => sessao.status === "completed"), [sessoes]);
+    const sessoesVisiveis = abaSessoes === "pending" ? sessoesPendentes : sessoesConcluidas;
+    const idTabsSessoes = useId().replaceAll(":", "");
 
     function selecionarSessao(sessionId: string) {
         sequenciaDetalhe.current += 1;
+        const sessao = sessoes.find((item) => item.id === sessionId);
+        setAbaSessoes(sessao?.status === "completed" ? "completed" : "pending");
         setSessaoSelecionadaId(sessionId);
         setDetalhe((atual) => atual?.id === sessionId ? atual : null);
         setErroDetalhe("");
@@ -350,7 +365,7 @@ export default function TipificacaoDocumentoWorkspace({
                         <h2 className="mt-1 font-display text-2xl font-bold" id="titulo-geracao-documento">Gerar tipificação a partir de documento</h2>
                         <p className="mt-1 text-sm text-muted">Envie um PDF, revise cada sugestão e escolha explicitamente o que entra na árvore real.</p>
                     </div>
-                    <button
+                    <BotaoComTitulo
                         aria-label="Fechar geração por documento"
                         className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line bg-input-bg transition hover:border-brand hover:bg-subtle-hover"
                         disabled={enviando || Boolean(mutacaoAtiva)}
@@ -358,7 +373,7 @@ export default function TipificacaoDocumentoWorkspace({
                         type="button"
                     >
                         <X size={19} />
-                    </button>
+                    </BotaoComTitulo>
                 </header>
 
                 <div className="grid min-h-0 grid-cols-1 lg:grid-cols-[22rem_minmax(0,1fr)]">
@@ -408,41 +423,75 @@ export default function TipificacaoDocumentoWorkspace({
                                 />
                             </label>
                             {erroEnvio ? <p className="rounded-lg border border-accent/35 bg-accent/10 p-2 text-xs font-semibold" role="alert">{erroEnvio}</p> : null}
-                            <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display font-bold text-white transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto" disabled={enviando} type="submit">
+                            <BotaoComTitulo className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display font-bold text-white transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto" disabled={enviando} type="submit">
                                 {enviando ? <Loader2 className="animate-spin" size={18} /> : <FileUp size={18} />}
                                 {enviando ? "Enviando…" : "Enviar e gerar sugestões"}
-                            </button>
+                            </BotaoComTitulo>
                         </form>
 
                         <div className="mt-5 flex items-center justify-between gap-3">
                             <h3 className="font-display font-bold">Gerações anteriores</h3>
-                            <button aria-label="Atualizar gerações" className="inline-flex size-9 items-center justify-center rounded-lg border border-line bg-input-bg hover:border-brand disabled:opacity-50" disabled={carregandoSessoes} onClick={() => void carregarSessoes()} type="button">
+                            <BotaoComTitulo aria-label="Atualizar gerações" className="inline-flex size-9 items-center justify-center rounded-lg border border-line bg-input-bg hover:border-brand disabled:opacity-50" disabled={carregandoSessoes} onClick={() => void carregarSessoes()} type="button">
                                 <RefreshCw className={carregandoSessoes ? "animate-spin" : ""} size={16} />
-                            </button>
+                            </BotaoComTitulo>
                         </div>
-                        <div className="mt-3 grid gap-2">
+                        <div className="mt-3 grid gap-3">
                             {carregandoSessoes ? <EstadoCompacto texto="Carregando gerações…" carregando /> : null}
                             {!carregandoSessoes && erroSessoes ? <EstadoCompacto texto={erroSessoes} erro /> : null}
-                            {!carregandoSessoes && !erroSessoes && sessoes.length === 0 ? <EstadoCompacto texto="Nenhuma geração encontrada." /> : null}
-                            {sessoes.map((sessao) => (
-                                <button
-                                    className={`grid min-w-0 gap-2 rounded-lg border p-3 text-left transition ${sessaoSelecionadaId === sessao.id ? "border-brand bg-brand/8" : "border-line bg-input-bg hover:border-brand/55"}`}
-                                    key={sessao.id}
-                                    onClick={() => selecionarSessao(sessao.id)}
-                                    type="button"
-                                >
-                                    <span className="flex min-w-0 items-center justify-between gap-2">
-                                        <strong className="truncate text-sm" title={sessao.original_filename}>{sessao.original_filename}</strong>
-                                        <ChevronRight className="shrink-0 text-muted" size={15} />
-                                    </span>
-                                    <span className="flex flex-wrap items-center gap-2">
-                                        <StatusSessao status={sessao.status} />
-                                        <small className="text-muted">{sessao.mode === "enrich" ? "Enriquecimento" : "Nova árvore"}</small>
-                                    </span>
-                                    {sessao.mode === "enrich" ? <small className="truncate text-muted" title={sessao.target_typification_name ?? sessao.target_typification_id ?? ""}>Alvo: {sessao.target_typification_name ?? sessao.target_typification_id ?? "indisponível"}</small> : null}
-                                    <small className="text-muted">{formatarData(sessao.created_at)}</small>
-                                </button>
-                            ))}
+                            {!carregandoSessoes && !erroSessoes ? (
+                                <>
+                                    <div aria-label="Filtrar gerações anteriores" className="grid grid-cols-2 rounded-lg border border-line bg-input-bg p-1" role="tablist">
+                                        {(["pending", "completed"] as const).map((aba) => {
+                                            const selecionada = abaSessoes === aba;
+                                            const quantidade = aba === "pending" ? sessoesPendentes.length : sessoesConcluidas.length;
+                                            const rotulo = aba === "pending" ? "Pendentes" : "Concluídas";
+                                            return (
+                                                <BotaoComTitulo
+                                                    aria-controls={`painel-sessoes-${idTabsSessoes}-${aba}`}
+                                                    aria-selected={selecionada}
+                                                    className={`rounded-md px-2 py-2 text-xs font-bold transition ${selecionada ? "bg-brand text-white shadow-sm dark:text-preto" : "text-muted hover:bg-subtle-hover hover:text-ink"}`}
+                                                    id={`tab-sessoes-${idTabsSessoes}-${aba}`}
+                                                    key={aba}
+                                                    onClick={() => setAbaSessoes(aba)}
+                                                    role="tab"
+                                                    type="button"
+                                                >
+                                                    {rotulo} ({quantidade})
+                                                </BotaoComTitulo>
+                                            );
+                                        })}
+                                    </div>
+                                    <div
+                                        aria-labelledby={`tab-sessoes-${idTabsSessoes}-${abaSessoes}`}
+                                        className="grid gap-2"
+                                        id={`painel-sessoes-${idTabsSessoes}-${abaSessoes}`}
+                                        role="tabpanel"
+                                        tabIndex={0}
+                                    >
+                                        {sessoes.length === 0 ? <EstadoCompacto texto="Nenhuma geração encontrada." /> : null}
+                                        {sessoes.length > 0 && sessoesVisiveis.length === 0 ? <EstadoCompacto texto={abaSessoes === "pending" ? "Nenhuma geração pendente." : "Nenhuma geração concluída."} /> : null}
+                                        {sessoesVisiveis.map((sessao) => (
+                                            <BotaoComTitulo
+                                                className={`grid min-w-0 gap-2 rounded-lg border p-3 text-left transition ${sessaoSelecionadaId === sessao.id ? "border-brand bg-brand/8" : "border-line bg-input-bg hover:border-brand/55"}`}
+                                                key={sessao.id}
+                                                onClick={() => selecionarSessao(sessao.id)}
+                                                type="button"
+                                            >
+                                                <span className="flex min-w-0 items-center justify-between gap-2">
+                                                    <strong className="truncate text-sm" title={sessao.original_filename}>{sessao.original_filename}</strong>
+                                                    <ChevronRight className="shrink-0 text-muted" size={15} />
+                                                </span>
+                                                <span className="flex flex-wrap items-center gap-2">
+                                                    <StatusSessao status={sessao.status} />
+                                                    <small className="text-muted">{sessao.mode === "enrich" ? "Enriquecimento" : "Nova árvore"}</small>
+                                                </span>
+                                                {sessao.mode === "enrich" ? <small className="truncate text-muted" title={sessao.target_typification_name ?? sessao.target_typification_id ?? ""}>Alvo: {sessao.target_typification_name ?? sessao.target_typification_id ?? "indisponível"}</small> : null}
+                                                <small className="text-muted">{formatarData(sessao.created_at)}</small>
+                                            </BotaoComTitulo>
+                                        ))}
+                                    </div>
+                                </>
+                            ) : null}
                         </div>
                     </aside>
 
@@ -512,7 +561,7 @@ function EstadoPrincipal({ icone, titulo, descricao, acao }: { icone: React.Reac
                 <span className="text-accent">{icone}</span>
                 <h3 className="font-display text-xl font-bold text-ink">{titulo}</h3>
                 <p className="text-sm leading-6">{descricao}</p>
-                {acao ? <button className="mt-2 rounded-lg bg-brand px-4 py-2 font-bold text-white dark:text-preto" onClick={acao} type="button">Tentar novamente</button> : null}
+                {acao ? <BotaoComTitulo className="mt-2 rounded-lg bg-brand px-4 py-2 font-bold text-white dark:text-preto" onClick={acao} type="button">Tentar novamente</BotaoComTitulo> : null}
             </div>
         </div>
     );
@@ -557,7 +606,7 @@ function DetalheSessao({
                         {detalhe.mode === "enrich" ? <p className="mt-2 text-sm text-muted">Alvo: <strong className="text-ink">{detalhe.target_typification_name ?? detalhe.target_typification_id ?? "indisponível"}</strong></p> : null}
                     </div>
                     {detalhe.status === "ready" && pendentes > 0 ? (
-                        <button className="inline-flex h-10 items-center gap-2 rounded-lg border border-accent/40 bg-accent/8 px-3 text-sm font-bold text-accent transition hover:bg-accent/15 disabled:opacity-50" disabled={Boolean(mutacaoAtiva)} onClick={aoDescartarTodos} type="button"><Trash2 size={16} />Descartar {pendentes} pendente(s)</button>
+                        <BotaoComTitulo className="inline-flex h-10 items-center gap-2 rounded-lg border border-accent/40 bg-accent/8 px-3 text-sm font-bold text-accent transition hover:bg-accent/15 disabled:opacity-50" disabled={Boolean(mutacaoAtiva)} onClick={aoDescartarTodos} type="button"><Trash2 size={16} />Descartar {pendentes} pendente(s)</BotaoComTitulo>
                     ) : null}
                 </div>
                 {detalhe.status === "processing" ? <p className="mt-4 flex items-center gap-2 rounded-lg border border-amber-600/35 bg-amber-500/10 p-3 text-sm"><Loader2 className="animate-spin" size={17} />O backend está processando o documento. Você pode fechar esta janela e voltar depois.</p> : null}
@@ -650,9 +699,9 @@ function ItemSugestao({
                     </div>
                     {item.status === "pending" ? (
                         <div className="flex flex-wrap gap-2">
-                            <button className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-input-bg px-3 text-xs font-bold hover:border-brand disabled:cursor-not-allowed disabled:opacity-45" disabled={Boolean(mutacaoAtiva) || paiBloqueia} onClick={() => aoEditar(item)} type="button"><Pencil size={15} />Editar</button>
-                            <button className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand px-3 text-xs font-bold text-white hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-45 dark:text-preto" disabled={Boolean(mutacaoAtiva) || paiBloqueia} onClick={() => aoConfirmar(item)} type="button">{processando && mutacaoAtiva?.tipo === "confirmar" ? <Loader2 className="animate-spin" size={15} /> : <Check size={15} />}Confirmar e aplicar</button>
-                            <button aria-label={`Descartar ${item.proposed_title}`} className="inline-flex size-9 items-center justify-center rounded-lg border border-accent/35 bg-accent/8 text-accent hover:bg-accent/15 disabled:opacity-45" disabled={Boolean(mutacaoAtiva)} onClick={() => aoDescartar(item)} type="button"><Trash2 size={15} /></button>
+                            <BotaoComTitulo className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-input-bg px-3 text-xs font-bold hover:border-brand disabled:cursor-not-allowed disabled:opacity-45" disabled={Boolean(mutacaoAtiva) || paiBloqueia} onClick={() => aoEditar(item)} type="button"><Pencil size={15} />Editar</BotaoComTitulo>
+                            <BotaoComTitulo className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand px-3 text-xs font-bold text-white hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-45 dark:text-preto" disabled={Boolean(mutacaoAtiva) || paiBloqueia} onClick={() => aoConfirmar(item)} type="button">{processando && mutacaoAtiva?.tipo === "confirmar" ? <Loader2 className="animate-spin" size={15} /> : <Check size={15} />}Confirmar e aplicar</BotaoComTitulo>
+                            <BotaoComTitulo aria-label={`Descartar ${item.proposed_title}`} className="inline-flex size-9 items-center justify-center rounded-lg border border-accent/35 bg-accent/8 text-accent hover:bg-accent/15 disabled:opacity-45" disabled={Boolean(mutacaoAtiva)} onClick={() => aoDescartar(item)} type="button"><Trash2 size={15} /></BotaoComTitulo>
                         </div>
                     ) : null}
                 </div>
@@ -695,14 +744,14 @@ function EditarSugestaoDialog({ item, titulo, descricao, erro, processando, aoAl
     return (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-black/65 p-4 backdrop-blur-sm" role="presentation">
             <section aria-labelledby="titulo-editar-sugestao" aria-modal="true" className="w-full max-w-xl rounded-2xl border border-line bg-panel p-5 shadow-2xl" role="dialog">
-                <header className="flex items-start justify-between gap-3 border-b border-line pb-4"><div><span className="text-xs font-bold uppercase tracking-wide text-accent">{rotuloTipoItem[item.kind]}</span><h3 className="mt-1 font-display text-xl font-bold" id="titulo-editar-sugestao">Revisar antes de aplicar</h3></div><button aria-label="Cancelar edição" className="grid size-9 place-items-center rounded-lg border border-line" disabled={processando} onClick={aoFechar} type="button"><X size={17} /></button></header>
+                <header className="flex items-start justify-between gap-3 border-b border-line pb-4"><div><span className="text-xs font-bold uppercase tracking-wide text-accent">{rotuloTipoItem[item.kind]}</span><h3 className="mt-1 font-display text-xl font-bold" id="titulo-editar-sugestao">Revisar antes de aplicar</h3></div><BotaoComTitulo aria-label="Cancelar edição" className="grid size-9 place-items-center rounded-lg border border-line" disabled={processando} onClick={aoFechar} type="button"><X size={17} /></BotaoComTitulo></header>
                 <div className="mt-4 grid gap-4">
                     <p className="rounded-lg border border-brand/30 bg-brand/8 p-3 text-sm">Ao confirmar, esta alteração entra imediatamente na árvore real.</p>
                     <label className="grid gap-1.5 text-sm font-bold">Título<input className="h-11 rounded-lg border border-line bg-input-bg px-3 font-normal outline-none focus:border-brand" disabled={processando} onChange={(evento) => aoAlterarTitulo(evento.target.value)} value={titulo} /></label>
                     {item.kind !== "typification" ? <label className="grid gap-1.5 text-sm font-bold">Descrição<textarea className="min-h-28 rounded-lg border border-line bg-input-bg p-3 font-normal outline-none focus:border-brand" disabled={processando} onChange={(evento) => aoAlterarDescricao(evento.target.value)} value={descricao} /></label> : null}
                     {erro ? <p className="text-sm font-semibold text-accent" role="alert">{erro}</p> : null}
                 </div>
-                <footer className="mt-5 flex justify-end gap-3 border-t border-line pt-4"><button className="h-10 rounded-lg border border-line px-4 font-bold" disabled={processando} onClick={aoFechar} type="button">Cancelar</button><button className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 font-bold text-white disabled:opacity-50 dark:text-preto" disabled={processando} onClick={aoConfirmar} type="button">{processando ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}Confirmar e aplicar</button></footer>
+                <footer className="mt-5 flex justify-end gap-3 border-t border-line pt-4"><BotaoComTitulo className="h-10 rounded-lg border border-line px-4 font-bold" disabled={processando} onClick={aoFechar} type="button">Cancelar</BotaoComTitulo><BotaoComTitulo className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 font-bold text-white disabled:opacity-50 dark:text-preto" disabled={processando} onClick={aoConfirmar} type="button">{processando ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}Confirmar e aplicar</BotaoComTitulo></footer>
             </section>
         </div>
     );
@@ -713,7 +762,7 @@ function ConfirmarDescarteDialog({ todos, titulo, aoConfirmar, aoFechar }: { tod
         <div className="fixed inset-0 z-[90] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" role="presentation">
             <section aria-labelledby="titulo-confirmar-descarte" aria-modal="true" className="w-full max-w-lg rounded-2xl border border-line bg-panel p-5 shadow-2xl" role="alertdialog">
                 <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent"><AlertTriangle size={19} /></span><div><h3 className="font-display text-xl font-bold" id="titulo-confirmar-descarte">{todos ? "Descartar todas as pendentes?" : "Descartar esta sugestão?"}</h3><p className="mt-2 text-sm leading-6 text-muted">{todos ? "Todos os itens ainda pendentes serão descartados." : `“${titulo}” e possíveis descendentes pendentes poderão ser descartados.`} Itens já confirmados permanecem aplicados na árvore real.</p></div></div>
-                <footer className="mt-5 flex justify-end gap-3 border-t border-line pt-4"><button autoFocus className="h-10 rounded-lg border border-line px-4 font-bold" onClick={aoFechar} type="button">Cancelar</button><button className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-4 font-bold text-white" onClick={aoConfirmar} type="button"><Trash2 size={16} />Descartar</button></footer>
+                <footer className="mt-5 flex justify-end gap-3 border-t border-line pt-4"><BotaoComTitulo autoFocus className="h-10 rounded-lg border border-line px-4 font-bold" onClick={aoFechar} type="button">Cancelar</BotaoComTitulo><BotaoComTitulo className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-4 font-bold text-white" onClick={aoConfirmar} type="button"><Trash2 size={16} />Descartar</BotaoComTitulo></footer>
             </section>
         </div>
     );

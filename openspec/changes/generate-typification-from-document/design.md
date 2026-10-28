@@ -37,6 +37,8 @@ The page will continue to own the canonical typification list and access-level d
 
 Closing the document experience will not cancel backend processing. Reopening it reloads the session list and selected detail from the backend.
 
+The typification card exposes an “Enriquecer” shortcut beside its taxonomy count. Its information icon is inside the same button, and the button tooltip explains that a PDF can suggest new elements or complements, keeping the help text visually and interactively attached to the action. The shortcut opens the same document-assisted workspace with `enrich` selected and the card's persistent typification id preselected, while the general “Gerar a partir de documento” entry continues to default to creating a new tree.
+
 ### Model the published session contract explicitly
 
 New frontend types will cover session modes and statuses, item kinds, create/update operations, item statuses, evidence, excluded rules, target snapshots and confirmation edits. Service operations will preserve the project's tuple-style results and normalized errors for:
@@ -55,6 +57,8 @@ All calls use `/api/backend/*` with the backend-managed `HttpOnly` cookie. The s
 The client may cache the selected detail in memory for responsiveness, but it reloads canonical detail after every confirmation or discard and obtains sessions again when the experience is opened. No session or review state is written to `localStorage`, IndexedDB or cookies.
 
 Only the selected `processing` session polls, initially at the backend demonstration's three-second cadence. `ready`, `failed` and `completed` stop polling. A request failure stops the current polling cycle and exposes a retry rather than spinning indefinitely.
+
+The previous-session list uses separate `Pendentes` and `Concluídas` tabs. The pending tab contains every session that is not `completed`, including `processing`, `ready` and `failed`, while the completed tab contains only `completed` sessions. Each tab preserves the backend order so the interface does not invent a secondary sort.
 
 ### Derive hierarchy from relationships instead of item order alone
 

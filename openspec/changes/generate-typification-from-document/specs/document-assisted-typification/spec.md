@@ -50,6 +50,12 @@ The application SHALL list the authenticated administrator's backend suggestion 
 - **THEN** the application obtains its current detail from the backend
 - **AND** does not reconstruct confirmation or discard state from browser storage
 
+#### Scenario: Previous sessions are separated by lifecycle tabs
+- **WHEN** the document-assisted experience lists previous sessions
+- **THEN** the experience presents separate `Pendentes` and `Concluídas` tabs
+- **AND** the `Pendentes` tab contains sessions whose status is not `completed`, preserving the relative order returned by the backend
+- **AND** the `Concluídas` tab contains only sessions whose status is `completed`, preserving the relative order returned by the backend
+
 #### Scenario: Session list or detail is unavailable
 - **WHEN** loading the session list or a selected detail fails
 - **THEN** the application presents a readable retryable error without modifying the tree

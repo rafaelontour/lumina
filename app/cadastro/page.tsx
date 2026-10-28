@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useState, type FormEvent } from "react";
@@ -197,10 +199,10 @@ function ConteudoCadastro() {
                                 </CampoCadastro>
 
                                 {erro ? <MensagemErro mensagem={erro} /> : null}
-                                <button className="mt-1 inline-flex h-13 items-center justify-center gap-2 rounded-lg bg-brand px-5 font-display text-lg font-semibold text-background transition hover:bg-brand-strong disabled:opacity-60" type="submit" disabled={enviando}>
+                                <BotaoComTitulo className="mt-1 inline-flex h-13 items-center justify-center gap-2 rounded-lg bg-brand px-5 font-display text-lg font-semibold text-background transition hover:bg-brand-strong disabled:opacity-60" type="submit" disabled={enviando}>
                                     {enviando ? <Loader2 className="animate-spin" size={19} /> : <UserPlus size={19} />}
                                     {enviando ? "Criando conta…" : "Criar conta e aceitar convite"}
-                                </button>
+                                </BotaoComTitulo>
                             </form>
                         </>
                     ) : estadoConvite.status === "sem-codigo" ? (
@@ -212,10 +214,10 @@ function ConteudoCadastro() {
                                     <input className="campo-cadastro" type="email" autoComplete="email" value={emailDireto} onChange={(evento) => setEmailDireto(evento.target.value)} placeholder="seu.email@exemplo.com" />
                                 </CampoCadastro>
                                 {erro ? <MensagemErro mensagem={erro} /> : null}
-                                <button className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-brand px-5 font-display font-semibold text-background transition hover:bg-brand-strong" type="submit">
+                                <BotaoComTitulo className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-brand px-5 font-display font-semibold text-background transition hover:bg-brand-strong" type="submit">
                                     Verificar autorização
                                     <UserPlus size={18} />
-                                </button>
+                                </BotaoComTitulo>
                             </form>
                         </>
                     ) : (

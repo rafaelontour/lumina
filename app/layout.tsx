@@ -20,8 +20,8 @@ const lexend = Lexend({
 });
 
 export const metadata: Metadata = {
-  title: "Lumina",
-  description: "Assistente de revisão científica.",
+  title: "LuminaIA",
+  description: "Assistente de revisão científica LuminaIA.",
 };
 
 export default async function RootLayout({

@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { useState } from "react";
 import { Bot, ChevronDown, FileWarning } from "lucide-react";
 
@@ -126,15 +128,16 @@ function TaxonomiaAnalise({ taxonomia }: { taxonomia: TaxonomiaAnaliseRelease })
 
     return (
         <section className="grid gap-3 border-t border-line pt-4">
-            <button
+            <BotaoComTitulo
                 aria-expanded={aberta}
+                title={aberta ? "Recolher detalhes da taxonomia" : "Expandir detalhes da taxonomia"}
                 className="flex w-full min-w-0 items-start justify-between gap-3 text-left outline-none transition hover:text-brand focus-visible:ring-2 focus-visible:ring-brand/70"
                 type="button"
                 onClick={() => setAberta((valorAtual) => !valorAtual)}
             >
                 <span className="min-w-0 flex-1 break-words font-display text-base font-bold text-ink">{taxonomia.title}</span>
                 <ChevronDown className={`mt-0.5 shrink-0 transition-transform ${aberta ? "rotate-180" : ""}`} size={18} />
-            </button>
+            </BotaoComTitulo>
 
             <div className="flex flex-wrap gap-1.5 text-[0.7rem] font-bold">
                 <span className="rounded-full border border-emerald-600/35 bg-emerald-600/10 px-2 py-1 text-emerald-700 dark:text-emerald-300">
@@ -165,7 +168,7 @@ function TaxonomiaAnalise({ taxonomia }: { taxonomia: TaxonomiaAnaliseRelease })
                             ) : null}
                             {criterio.evaluation?.feedback ? (
                                 <div className="grid gap-1 text-sm leading-6 text-ink">
-                                    <span className="font-bold">Feedback da Oiac IA</span>
+                                    <span className="font-bold">Feedback da LuminaIA</span>
                                     <MarkdownAnalise compacto>{criterio.evaluation.feedback}</MarkdownAnalise>
                                 </div>
                             ) : null}

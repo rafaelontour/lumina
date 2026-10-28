@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, Eye, FileCheck2, FileText, FileWarning, History, Loader2, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -717,7 +719,7 @@ export default function ConformidadeTemplateWorkspace() {
                                         const documentoAnalisado = !documentoProcessando && Boolean(resultadosPorDocumento[chaveResultadoDocumento(documento)]?.possuiAnaliseHistorica);
                                         const documentoSelecionado = documento.id === alvoSelecionadoId;
 
-                                        return <button
+                                        return <BotaoComTitulo
                                             className={`grid gap-1 rounded-lg border p-3 text-left transition ${
                                                 documentoProcessando
                                                     ? documentoSelecionado
@@ -746,7 +748,7 @@ export default function ConformidadeTemplateWorkspace() {
                                             {documento.novaVersaoEmAnalise ? <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-line bg-panel px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-muted"><Loader2 className="animate-spin motion-reduce:animate-none" size={12} />Nova versão em análise</span> : null}
                                             {documentoProcessando ? <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-brand/40 bg-panel px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-ink"><Loader2 className="animate-spin motion-reduce:animate-none" size={12} />Em análise</span> : null}
                                             {documentoAnalisado ? <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-brand/40 bg-subtle-hover px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-ink"><FileCheck2 size={12} />Analisado</span> : null}
-                                        </button>;
+                                        </BotaoComTitulo>;
                                     })()
                                 ))}
                             </section>
@@ -772,7 +774,7 @@ export default function ConformidadeTemplateWorkspace() {
                                             {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                                         </select>
                                     </label>
-                                    <button
+                                    <BotaoComTitulo
                                         className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55 dark:text-preto"
                                         type="button"
                                         disabled={iniciandoAnalise || analiseProcessando || documentoSelecionado.novaVersaoEmAnalise || versaoJaAnalisada || !elegibilidadeResolvida || !documentoSelecionado.documentId || !documentoSelecionado.filePath || !templateAtivo}
@@ -780,8 +782,8 @@ export default function ConformidadeTemplateWorkspace() {
                                     >
                                         {iniciandoAnalise ? <Loader2 className="animate-spin" size={18} /> : <FileCheck2 size={18} />}
                                         {iniciandoAnalise ? "Iniciando análise..." : analiseProcessando ? "Análise em andamento" : documentoSelecionado.novaVersaoEmAnalise ? "Nova versão em análise" : versaoJaAnalisada ? "Análise já realizada" : "Iniciar análise"}
-                                    </button>
-                                    <button
+                                    </BotaoComTitulo>
+                                    <BotaoComTitulo
                                         className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-4 font-display text-sm font-semibold text-ink transition hover:border-brand hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-55"
                                         type="button"
                                         disabled={!documentoSelecionado.documentId}
@@ -789,7 +791,7 @@ export default function ConformidadeTemplateWorkspace() {
                                     >
                                         <History size={18} />
                                         Histórico
-                                    </button>
+                                    </BotaoComTitulo>
                                 </div>
                                 {orientacaoVersao ? <p className="text-xs leading-5 text-muted">{orientacaoVersao}</p> : null}
                             </div>
@@ -891,9 +893,9 @@ export default function ConformidadeTemplateWorkspace() {
                                 <h2 id="titulo-historico-conformidade" className="font-display text-xl font-bold text-ink">Histórico de análises</h2>
                                 <p className="mt-1 truncate text-sm text-muted" title={documentoSelecionado?.fileName}>{documentoSelecionado?.fileName ?? "Documento selecionado"}</p>
                             </div>
-                            <button className="grid size-9 place-items-center rounded-lg border border-line text-muted transition hover:bg-input-bg hover:text-ink" type="button" aria-label="Fechar histórico" onClick={() => setHistoricoAberto(false)}>
+                            <BotaoComTitulo className="grid size-9 place-items-center rounded-lg border border-line text-muted transition hover:bg-input-bg hover:text-ink" type="button" aria-label="Fechar histórico" onClick={() => setHistoricoAberto(false)}>
                                 <X size={18} />
-                            </button>
+                            </BotaoComTitulo>
                         </header>
                         <div className="min-h-0 overflow-y-auto p-5">
                             {carregandoHistorico ? (

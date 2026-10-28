@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
@@ -233,7 +235,7 @@ function ConteudoLogin() {
                                     placeholder="Digite sua senha"
                                     disabled={enviando}
                                 />
-                                <button
+                                <BotaoComTitulo
                                     className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-subtle-hover hover:text-ink focus-visible:outline-3 focus-visible:outline-focus"
                                     type="button"
                                     aria-label="Mantenha pressionado para mostrar a senha"
@@ -256,21 +258,25 @@ function ConteudoLogin() {
                                     onBlur={() => setMostrarSenha(false)}
                                 >
                                     {mostrarSenha ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-                                </button>
+                                </BotaoComTitulo>
                             </span>
                         </label>
 
                         {erro ? <p className="rounded-lg border border-accent/40 bg-accent/8 px-3 py-2.5 text-base font-medium text-accent" role="alert">{erro}</p> : null}
 
-                        <button
+                        <BotaoComTitulo
                             className="mt-1 inline-flex h-13 items-center justify-center gap-2 rounded-lg bg-brand px-5 font-display text-lg font-semibold text-background transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60"
                             type="submit"
                             disabled={enviando}
                         >
                             {enviando ? <Loader2 className="animate-spin" size={19} /> : <ArrowRight size={19} />}
                             {enviando ? "Entrando…" : "Entrar"}
-                        </button>
+                        </BotaoComTitulo>
                     </form>
+
+                    <p className="mt-4 text-right text-sm">
+                        <Link className="font-semibold text-brand underline-offset-4 hover:underline" href="/esqueci-senha">Esqueci minha senha</Link>
+                    </p>
 
                     <p className="mt-7 text-center text-base text-muted">
                         Não tem uma conta?{" "}

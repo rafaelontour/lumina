@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import Image from "next/image";
 import Link from "next/link";
 import { LogOut, Menu, Moon, PanelLeftClose, Sun, UserRound } from "lucide-react";
@@ -38,7 +40,7 @@ export default function Cabecalho({ menuRecolhido, aoAlternarMenu }: CabecalhoPr
     return (
         <header className="col-span-full flex min-h-18 items-center justify-between gap-4 border-b border-line bg-header-bg px-5 py-4 shadow-[0_12px_28px_-24px_var(--chrome-shadow)] backdrop-blur-md md:px-6">
             <div className="flex min-w-0 items-center gap-6">
-                <button
+                <BotaoComTitulo
                     className="inline-flex size-10 items-center justify-center rounded-lg border border-line bg-input-bg text-ink transition hover:border-brand hover:bg-subtle-hover"
                     type="button"
                     onClick={aoAlternarMenu}
@@ -46,7 +48,7 @@ export default function Cabecalho({ menuRecolhido, aoAlternarMenu }: CabecalhoPr
                     title={menuRecolhido ? "Expandir menu" : "Recolher menu"}
                 >
                     {menuRecolhido ? <Menu size={20} /> : <PanelLeftClose size={20} />}
-                </button>
+                </BotaoComTitulo>
 
                 <Link className="flex min-w-0 items-center" href="/" aria-label="Ir para início">
                     <Image
@@ -81,18 +83,19 @@ export default function Cabecalho({ menuRecolhido, aoAlternarMenu }: CabecalhoPr
                         <span className="min-w-0 truncate text-sm font-semibold">{orientadorParaExibir.advisor.username}</span>
                     </div>
                 ) : null}
-                <button
+                <BotaoComTitulo
                     className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-line bg-input-bg px-3 font-semibold text-ink transition hover:border-brand hover:bg-subtle-hover"
                     type="button"
                     onClick={alternarTema}
                     aria-label="Alternar tema"
+                    title={resolvedTheme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
                 >
                     <Moon size={18} className="dark:hidden" />
                     <Sun size={18} className="hidden dark:block" />
                     <span className="hidden sm:inline dark:hidden">Escuro</span>
                     <span className="hidden sm:dark:inline">Claro</span>
-                </button>
-                <button
+                </BotaoComTitulo>
+                <BotaoComTitulo
                     className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line bg-input-bg text-ink transition hover:border-accent hover:text-accent"
                     type="button"
                     onClick={() => void sairDaPlataforma()}
@@ -100,7 +103,7 @@ export default function Cabecalho({ menuRecolhido, aoAlternarMenu }: CabecalhoPr
                     title="Sair"
                 >
                     <LogOut size={18} />
-                </button>
+                </BotaoComTitulo>
             </div>
         </header>
     )

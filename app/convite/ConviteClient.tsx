@@ -1,5 +1,7 @@
 "use client";
 
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -146,10 +148,10 @@ export default function ConviteClient({ codigo }: { codigo: string }) {
                                     {estado.convite.user_exists ? "Entrar e aceitar convite" : "Criar conta e aceitar"}
                                     <ArrowRight size={18} />
                                 </Link>
-                                <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-line bg-input-bg px-4 font-semibold transition hover:border-accent hover:text-accent disabled:opacity-60" disabled={recusando} onClick={() => void recusar()} type="button">
+                                <BotaoComTitulo className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-line bg-input-bg px-4 font-semibold transition hover:border-accent hover:text-accent disabled:opacity-60" disabled={recusando} onClick={() => void recusar()} type="button">
                                     {recusando ? <Loader2 className="animate-spin" size={17} /> : <X size={17} />}
                                     {recusando ? "Recusando…" : "Recusar convite"}
-                                </button>
+                                </BotaoComTitulo>
                             </div>
                         </div>
                     ) : estado.status === "recusado" ? (

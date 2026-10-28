@@ -76,6 +76,54 @@ export async function encerrarSessao(): Promise<[true | null, Error | null]> {
     return err ? [null, criarErroApi(err, "Não foi possível encerrar a sessão.")] : [true, null];
 }
 
+export async function alterarSenhaUsuario({
+    userId,
+    currentPassword,
+    newPassword,
+}: {
+    userId: string;
+    currentPassword: string;
+    newPassword: string;
+}): Promise<[true | null, Error | null]> {
+    const [, err] = await executarRequisicao(() =>
+        axios.put(montarUrlApi("/auth/password"), {
+            user_id: userId,
+            current_password: currentPassword,
+            new_password: newPassword,
+        }, { withCredentials: true })
+    );
+
+    return err ? [null, criarErroApi(err, "Não foi possível alterar a senha.")] : [true, null];
+}
+
+export async function solicitarRecuperacaoSenha(email: string): Promise<[true | null, Error | null]> {
+    const [, err] = await executarRequisicao(() =>
+        axios.post(montarUrlApi("/auth/forgot-password"), { email }, { withCredentials: true })
+    );
+
+    return err ? [null, criarErroApi(err, "Não foi possível processar a solicitação.")] : [true, null];
+}
+
+export async function redefinirSenhaUsuario({
+    email,
+    token,
+    newPassword,
+}: {
+    email: string;
+    token: string;
+    newPassword: string;
+}): Promise<[true | null, Error | null]> {
+    const [, err] = await executarRequisicao(() =>
+        axios.post(montarUrlApi("/auth/reset-password"), {
+            email,
+            token,
+            new_password: newPassword,
+        }, { withCredentials: true })
+    );
+
+    return err ? [null, criarErroApi(err, "Não foi possível redefinir a senha.")] : [true, null];
+}
+
 export async function atualizarPerfilUsuario(dados: DadosAtualizacaoPerfil): Promise<[UsuarioAutenticado | null, Error | null]> {
     const [response, err] = await executarRequisicao(() =>
         axios.put<UsuarioAutenticado>(montarUrlApi("/user"), dados, {
