@@ -1,3 +1,5 @@
+import type { ReferenciaDocumentoAnaliseRelease } from "@/app/types/Documento";
+
 export type TipoMentionMensagem = "USER" | "MESSAGE" | "SOURCE" | "TYPIFICATION" | "TAXONOMY" | "BRANCH" | "AI";
 
 export type MentionMensagem = {
@@ -10,6 +12,7 @@ export type MensagemDocumento = {
     id: string;
     content: string;
     mentions?: MentionMensagem[] | null;
+    references?: ReferenciaDocumentoAnaliseRelease[];
     document_id: string;
     release_id?: string | null;
     created_at: string;

@@ -20,6 +20,7 @@ import {
     listarDocumentosExternosPorFonte,
     listarReleasesDocumento,
     montarFonteDocumentoProjeto,
+    normalizarReferenciasAnalise,
     obterUsuarioAtual,
 } from "./documento";
 import { listarTipificacoes } from "./tipificacao";
@@ -109,6 +110,14 @@ export async function listarConversasAgrupadasOiac(): Promise<[ProjetoConversasA
     ];
 }
 
+function normalizarMensagemDocumento(mensagem: MensagemDocumento): MensagemDocumento {
+    const registro = mensagem as MensagemDocumento & { references?: unknown };
+    return {
+        ...mensagem,
+        references: normalizarReferenciasAnalise(registro.references),
+    };
+}
+
 export async function listarMensagensDocumento(docId: string): Promise<[MensagemDocumento[], Error | null]> {
     const [response, err] = await executarRequisicaoProtegida(
         () =>
@@ -122,7 +131,7 @@ export async function listarMensagensDocumento(docId: string): Promise<[Mensagem
 
     if (err) return [[], err];
     const mensagens = response?.data.messages;
-    return [Array.isArray(mensagens) ? mensagens : [], null];
+    return [Array.isArray(mensagens) ? mensagens.map(normalizarMensagemDocumento) : [], null];
 }
 
 export async function obterDocumentoOiac(docId: string): Promise<[ConversaOiac | null, Error | null]> {
@@ -257,7 +266,7 @@ export async function enviarMensagemIa(docId: string, content: string): Promise<
     );
 
     if (err) return [null, err];
-    return [response?.data ?? null, null];
+    return [response?.data ? normalizarMensagemDocumento(response.data) : null, null];
 }
 
 export async function apagarConversaOiac(docId: string): Promise<[boolean, Error | null]> {
