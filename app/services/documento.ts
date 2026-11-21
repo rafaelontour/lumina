@@ -104,7 +104,7 @@ function normalizarRetangulosReferencia(valor: unknown): RetanguloReferenciaDocu
     });
 }
 
-function normalizarReferenciasAnalise(valor: unknown): ReferenciaDocumentoAnaliseRelease[] {
+export function normalizarReferenciasAnalise(valor: unknown): ReferenciaDocumentoAnaliseRelease[] {
     return comoLista(valor).flatMap((item) => {
         const referencia = comoRegistro(item);
         const page = comoNumero(referencia?.page);

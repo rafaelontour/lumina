@@ -1,12 +1,20 @@
+import { MapPin } from "lucide-react";
 import { isValidElement, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+
+import BotaoComTitulo from "@/app/components/BotaoComTitulo";
+import type { ReferenciaDocumentoAnaliseRelease } from "@/app/types/Documento";
+
+const prefixoLinkEvidencia = "#lumina-evidencia-";
 
 type MarkdownAnaliseProps = {
     children: string;
     className?: string;
     destacarTitulosSintese?: boolean;
     compacto?: boolean;
+    references?: ReferenciaDocumentoAnaliseRelease[];
+    onSelecionarEvidencia?: (referencia: ReferenciaDocumentoAnaliseRelease) => void;
 };
 
 function normalizarTexto(valor: string) {
@@ -21,6 +29,44 @@ function normalizarMarcadoresTipograficos(valor: string) {
     return valor.replace(/[^\S\r\n]*●[^\S\r\n]*/gu, (_marcador, deslocamento: number) =>
         deslocamento === 0 ? "- " : "\n- ",
     );
+}
+
+function escaparExpressaoRegular(valor: string) {
+    return valor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function injetarLinksEvidencia(valor: string, references?: ReferenciaDocumentoAnaliseRelease[]) {
+    if (!references?.length) return valor;
+
+    const porChunkId = new Map<string, { indice: number; referencia: ReferenciaDocumentoAnaliseRelease }>();
+    references.forEach((referencia, indice) => {
+        const chunkId = referencia.chunkId?.trim();
+        if (chunkId && !porChunkId.has(chunkId)) {
+            porChunkId.set(chunkId, { indice, referencia });
+        }
+    });
+
+    if (porChunkId.size === 0) return valor;
+
+    const idsOrdenados = [...porChunkId.keys()]
+        .sort((a, b) => b.length - a.length)
+        .map(escaparExpressaoRegular)
+        .join("|");
+
+    const padrao = new RegExp(
+        `\`(?:chunk_id:\\s*)?(${idsOrdenados})\`|` +
+            `\\[(?:FONTE(?:\\s+\\d+)?\\s*\\]\\s*chunk_id:\\s*|chunk_id:\\s*)?(${idsOrdenados})\\]|` +
+            `\\((?:chunk_id:\\s*)?(${idsOrdenados})\\)|` +
+            `(?<![A-Za-z0-9_-])(?:chunk_id:\\s*)?(${idsOrdenados})(?![A-Za-z0-9_-])`,
+        "g"
+    );
+
+    return valor.replace(padrao, (correspondencia, g1, g2, g3, g4) => {
+        const chunkId = (g1 ?? g2 ?? g3 ?? g4) as string | undefined;
+        const entrada = chunkId ? porChunkId.get(chunkId) : undefined;
+        if (!entrada) return correspondencia;
+        return `[Página ${entrada.referencia.page + 1}](${prefixoLinkEvidencia}${entrada.indice})`;
+    });
 }
 
 function textoDosFilhos(children: ReactNode): string {
@@ -53,6 +99,8 @@ export default function MarkdownAnalise({
     className = "",
     compacto = false,
     destacarTitulosSintese = false,
+    onSelecionarEvidencia,
+    references,
 }: Readonly<MarkdownAnaliseProps>) {
     const components: Components = {
         p: ({ children: conteudo }) => (
@@ -87,11 +135,32 @@ export default function MarkdownAnalise({
         blockquote: ({ children: conteudo }) => (
             <blockquote className="border-l-2 border-accent/55 pl-3 text-muted">{conteudo}</blockquote>
         ),
-        a: ({ children: conteudo, href }) => (
-            <a className="font-semibold text-brand underline underline-offset-2" href={href} rel="noreferrer" target="_blank">
-                {conteudo}
-            </a>
-        ),
+        a: ({ children: conteudo, href }) => {
+            if (href?.startsWith(prefixoLinkEvidencia) && onSelecionarEvidencia) {
+                const indice = Number(href.slice(prefixoLinkEvidencia.length));
+                const referencia = Number.isInteger(indice) ? references?.[indice] : undefined;
+
+                if (referencia) {
+                    return (
+                        <BotaoComTitulo
+                            className="mx-0.5 inline-flex items-center gap-1 rounded-md border border-brand/45 bg-subtle-hover px-2 py-0.5 align-baseline text-xs font-bold text-brand transition hover:border-brand hover:bg-brand hover:text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
+                            title={referencia.textSnippet || `Localizar evidência na página ${referencia.page + 1}`}
+                            type="button"
+                            onClick={() => onSelecionarEvidencia(referencia)}
+                        >
+                            <MapPin aria-hidden="true" size={13} />
+                            {conteudo}
+                        </BotaoComTitulo>
+                    );
+                }
+            }
+
+            return (
+                <a className="font-semibold text-brand underline underline-offset-2" href={href} rel="noreferrer" target="_blank">
+                    {conteudo}
+                </a>
+            );
+        },
         code: ({ children: conteudo }) => (
             <code className="rounded bg-input-bg px-1 py-0.5 font-mono text-[0.9em] text-ink">{conteudo}</code>
         ),
@@ -112,10 +181,14 @@ export default function MarkdownAnalise({
         hr: () => <hr className="border-line" />,
     };
 
+    const conteudoPreparado = normalizarMarcadoresTipograficos(
+        onSelecionarEvidencia ? injetarLinksEvidencia(children, references) : children
+    );
+
     return (
         <div className={`grid min-w-0 gap-2 text-ink ${className}`}>
             <ReactMarkdown components={components} remarkPlugins={[remarkGfm]} skipHtml>
-                {normalizarMarcadoresTipograficos(children)}
+                {conteudoPreparado}
             </ReactMarkdown>
         </div>
     );

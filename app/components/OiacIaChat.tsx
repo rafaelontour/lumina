@@ -11,7 +11,6 @@ import {
     ExternalLink,
     FileText,
     Loader2,
-    MapPin,
     MessageSquare,
     PanelLeftClose,
     PanelLeftOpen,
@@ -1130,11 +1129,23 @@ function ListaConversasAgrupadas({
     );
 }
 
-function ConteudoMensagem({ content, resumoAnalise = false }: { content: string; resumoAnalise?: boolean }) {
+function ConteudoMensagem({
+    content,
+    onSelecionarEvidencia,
+    references,
+    resumoAnalise = false,
+}: {
+    content: string;
+    onSelecionarEvidencia?: (referencia: ReferenciaDocumentoAnaliseRelease) => void;
+    references?: ReferenciaDocumentoAnaliseRelease[];
+    resumoAnalise?: boolean;
+}) {
     return (
         <MarkdownAnalise
             className="text-justify text-base md:text-lg"
             destacarTitulosSintese={resumoAnalise}
+            onSelecionarEvidencia={onSelecionarEvidencia}
+            references={references}
         >
             {content}
         </MarkdownAnalise>
@@ -1194,7 +1205,11 @@ function ListaMensagens({
                         key={item.id}
                     >
                         <CabecalhoMensagem ia={ia} data={item.created_at} />
-                        <ConteudoMensagem content={item.content} />
+                        <ConteudoMensagem
+                            content={item.content}
+                            onSelecionarEvidencia={ia ? onSelecionarEvidencia : undefined}
+                            references={ia ? item.references : undefined}
+                        />
                     </article>
                 );
             })}
@@ -1374,28 +1389,14 @@ function TaxonomiaAnaliseColapsavel({
                                         {criterio.evaluation?.feedback ? (
                                             <div className="grid gap-1 text-sm leading-6 text-ink">
                                                 <span className="font-bold">Feedback da LuminaIA</span>
-                                                <MarkdownAnalise className="text-justify" compacto>
+                                                <MarkdownAnalise
+                                                    className="text-justify"
+                                                    compacto
+                                                    onSelecionarEvidencia={onSelecionarEvidencia}
+                                                    references={criterio.evaluation.references}
+                                                >
                                                     {criterio.evaluation.feedback}
                                                 </MarkdownAnalise>
-                                            </div>
-                                        ) : null}
-                                        {criterio.evaluation?.references?.length ? (
-                                            <div className="grid gap-2 text-sm">
-                                                <span className="font-bold text-ink">Evidências no documento</span>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {criterio.evaluation.references.map((referencia, indiceReferencia) => (
-                                                        <BotaoComTitulo
-                                                            className="inline-flex items-center gap-1 rounded-md border border-brand/45 bg-subtle-hover px-2 py-1 text-xs font-bold text-brand transition hover:border-brand hover:bg-brand hover:text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
-                                                            key={`${referencia.chunkId ?? "pagina"}-${referencia.page}-${indiceReferencia}`}
-                                                            type="button"
-                                                            title={referencia.textSnippet || `Localizar evidência na página ${referencia.page + 1}`}
-                                                            onClick={() => onSelecionarEvidencia(referencia)}
-                                                        >
-                                                            <MapPin aria-hidden="true" size={14} />
-                                                            Página {referencia.page + 1}
-                                                        </BotaoComTitulo>
-                                                    ))}
-                                                </div>
                                             </div>
                                         ) : null}
                                     </section>
